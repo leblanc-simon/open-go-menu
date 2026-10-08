@@ -1,0 +1,34 @@
+# OpenMenu — configuration d'exemple. Copier en config.yaml.
+#
+# Toute clé peut être fournie par une variable d'environnement préfixée OGM_
+# (voir `open-menu --help`). Sans fichier config.yaml, seules les variables
+# d'environnement et les valeurs par défaut s'appliquent.
+#
+# Le fuseau horaire qui décide de « aujourd'hui » est celui du processus :
+# positionner TZ (ex. TZ=Europe/Paris) si le serveur tourne en UTC.
+
+web:
+  # Loopback : exposer l'application derrière un reverse proxy qui authentifie.
+  host: 127.0.0.1
+  port: 8080
+  # Requêtes par minute et par IP cliente ; 0 désactive la limite.
+  rate_limit: 100
+  # CIDR du reverse proxy, pour que la limite porte sur les vrais clients.
+  trusted_proxies:
+    - 127.0.0.1/32
+    - ::1/128
+
+logging:
+  level: info
+  format: text
+  source: false
+
+i18n:
+  # Langue de repli quand ni ?lang=, ni le cookie, ni Accept-Language ne
+  # désignent une langue disponible (fr, en).
+  default_language: fr
+
+database:
+  # Seul SQLite est géré.
+  driver: sqlite
+  dsn: file:open-menu.db

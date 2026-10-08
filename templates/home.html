@@ -1,0 +1,107 @@
+{{ define "content" }}
+<section class="week">
+  <header class="week__head">
+    <h1 class="week__title">{{ .Range }}</h1>
+
+    <nav class="week__nav" aria-label="{{ T "home.week_nav" }}">
+      <a class="button button--quiet" href="{{ .PrevURL }}" rel="prev">{{ T "home.previous_week" }}</a>
+      {{ if not .IsCurrent }}<a class="button button--quiet" href="/">{{ T "home.current_week" }}</a>{{ end }}
+      <a class="button button--quiet" href="{{ .NextURL }}" rel="next">{{ T "home.next_week" }}</a>
+    </nav>
+
+    <form class="week__start" method="post" action="/week-start">
+      {{ csrfField }}
+      <input type="hidden" name="week" value="{{ .Ref }}">
+      <label for="week_start">{{ T "home.week_start" }}</label>
+      <select id="week_start" name="week_start" data-autosubmit>
+        {{ range .WeekStarts }}<option value="{{ .Value }}" {{ if .Selected }}selected{{ end }}>{{ .Label }}</option>{{ end }}
+      </select>
+      <button class="button button--quiet" type="submit" data-autosubmit-fallback>{{ T "home.apply" }}</button>
+    </form>
+  </header>
+
+  {{ if eq .State "empty" }}
+  <div class="draw draw--empty">
+    {{ if .DishCount }}
+    <p class="draw__text">{{ Tn "home.empty_hint" .DishCount }}</p>
+    <form method="post" action="/plan/generate">
+      {{ csrfField }}
+      <input type="hidden" name="week" value="{{ .Week }}">
+      <button class="button button--primary button--large" type="submit">{{ T "home.generate" }}</button>
+    </form>
+    {{ else }}
+    <p class="draw__text">{{ T "home.no_dishes" }}</p>
+    <a class="button button--primary button--large" href="/settings#add">{{ T "home.add_dishes" }}</a>
+    {{ end }}
+  </div>
+  {{ end }}
+
+  <ol class="days {{ if .Wide }}days--wide{{ end }}">
+    {{ range .Days }}
+    {{ $day := . }}
+    <li class="day day--{{ .Season }} {{ if .IsToday }}day--today{{ end }}" id="{{ .Anchor }}">
+      <div class="day__when">
+        <h2 class="day__name">{{ .Weekday }}</h2>
+        <p class="day__date">{{ .Date }}</p>
+        <p class="day__meta">
+          <span class="season season--{{ .Season }}">{{ .Label }}</span>
+          {{ if .IsToday }}<span class="day__today">{{ T "home.today" }}</span>{{ end }}
+        </p>
+      </div>
+      <div class="day__meals">
+        {{ range .Slots }}
+        <article class="meal {{ if not .Entry }}meal--empty{{ end }}">
+          <h3 class="meal__slot">{{ .MealLabel }}</h3>
+          {{ with .Entry }}
+          <p class="meal__dish">{{ .DishName }}</p>
+          {{ else }}
+          <p class="meal__dish">{{ T "home.slot_empty" }}</p>
+          {{ end }}
+          {{ if or $.DishCount .Entry }}
+          <form class="meal__actions" method="post" action="{{ .Action }}">
+            {{ csrfField }}
+            <input type="hidden" name="week" value="{{ $.Ref }}">
+            {{ if $.DishCount }}
+            <button class="link-button" type="submit" name="action" value="reroll">{{ if .Entry }}{{ T "home.reroll" }}{{ else }}{{ T "home.draw_one" }}{{ end }}</button>
+            <details class="meal__choose">
+              <summary class="link-button">{{ T "home.choose" }}</summary>
+              <div class="meal__picker">
+                <label class="visually-hidden" for="pick-{{ $day.Anchor }}-{{ .Meal }}">{{ .ChooseFor }}</label>
+                <select id="pick-{{ $day.Anchor }}-{{ .Meal }}" name="dish_id">
+                  {{ $current := 0 }}{{ with .Entry }}{{ $current = .DishID }}{{ end }}
+                  {{ range $.Dishes }}<option value="{{ .ID }}" {{ if eq .ID $current }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+                </select>
+                <button class="button button--quiet" type="submit" name="action" value="set">{{ T "home.set" }}</button>
+              </div>
+            </details>
+            {{ end }}
+            {{ if .Entry }}<button class="link-button link-button--danger" type="submit" name="action" value="clear">{{ T "home.clear" }}</button>{{ end }}
+          </form>
+          {{ end }}
+        </article>
+        {{ end }}
+      </div>
+    </li>
+    {{ end }}
+  </ol>
+
+  {{ if and .DishCount (ne .State "empty") }}
+  <div class="draw">
+    {{ if eq .State "partial" }}
+    <form method="post" action="/plan/generate">
+      {{ csrfField }}
+      <input type="hidden" name="week" value="{{ .Week }}">
+      <input type="hidden" name="mode" value="fill">
+      <button class="button button--primary" type="submit">{{ T "home.fill" }}</button>
+    </form>
+    {{ end }}
+    <form method="post" action="/plan/generate">
+      {{ csrfField }}
+      <input type="hidden" name="week" value="{{ .Week }}">
+      <input type="hidden" name="mode" value="all">
+      <button class="button button--quiet" type="submit">{{ T "home.regenerate" }}</button>
+    </form>
+  </div>
+  {{ end }}
+</section>
+{{ end }}

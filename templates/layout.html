@@ -1,0 +1,36 @@
+{{ define "layout" -}}
+<!doctype html>
+<html lang="{{ .Lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Title }} · {{ T "app.name" }}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">{{ T "nav.skip" }}</a>
+  <header class="masthead">
+    <a class="masthead__brand" href="/">{{ T "app.name" }}</a>
+    <nav class="masthead__nav" aria-label="{{ T "nav.label" }}">
+      <a href="/" {{ if eq .Nav "home" }}aria-current="page"{{ end }}>{{ T "nav.week" }}</a>
+      <a href="/settings" {{ if eq .Nav "settings" }}aria-current="page"{{ end }}>{{ T "nav.settings" }}</a>
+    </nav>
+  </header>
+
+  <main id="main" class="page">
+    {{ with .Flash }}<p class="flash" role="status">{{ . }}</p>{{ end }}
+    {{ template "content" . }}
+  </main>
+
+  <footer class="colophon">
+    <nav aria-label="{{ T "nav.language" }}">
+      {{ range .LangLinks -}}
+      <a href="{{ .URL }}" hreflang="{{ .Code }}" lang="{{ .Code }}" {{ if .Current }}aria-current="true"{{ end }}>{{ .Label }}</a>
+      {{- end }}
+    </nav>
+  </footer>
+</body>
+</html>
+{{- end }}

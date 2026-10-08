@@ -1,0 +1,125 @@
+app:
+  name: OpenMenu
+
+nav:
+  skip: Aller au contenu
+  label: Navigation principale
+  week: Semaine
+  settings: Paramètres
+  language: Langue
+
+language:
+  fr: Français
+  en: English
+
+home:
+  title: Menu de la semaine
+  week_range: "Du {{.From}} au {{.To}}"
+  week_nav: Changer de semaine
+  previous_week: Semaine précédente
+  current_week: Cette semaine
+  next_week: Semaine suivante
+  week_start: La semaine commence le
+  apply: Appliquer
+  empty_hint:
+    one: "Rien n'est prévu cette semaine. Un seul menu est disponible pour le tirage."
+    other: "Rien n'est prévu cette semaine. Le tirage puisera dans vos {{.Count}} menus."
+  generate: Générer
+  no_dishes: Rien n'est prévu cette semaine, et la liste des menus est vide.
+  add_dishes: Ajouter des menus
+  today: Aujourd'hui
+  slot_empty: Rien de prévu
+  reroll: Relancer
+  draw_one: Tirer au sort
+  choose: Choisir
+  choose_for: "Menu du {{.Meal}}, {{.Day}}"
+  set: Valider
+  clear: Vider
+  fill: Compléter les repas vides
+  regenerate: Régénérer toute la semaine
+
+settings:
+  title: Paramètres
+  dishes_title: Menus
+  weights_hint: >-
+    Chaque poids va de 0 à 10. Plus il est élevé, plus le menu sort souvent :
+    ses chances un jour donné sont le poids général multiplié par celui de la
+    saison. Un poids à 0 l'écarte du tirage. Un nouveau menu part à {{.Weight}} partout.
+  name: Nom
+  weight: Poids général
+  delete: Supprimer
+  save: Enregistrer les menus
+  no_dishes: Aucun menu pour l'instant. Ajoutez-en un ci-dessous.
+  add_title: Ajouter un menu
+  name_placeholder: Gratin dauphinois
+  add: Ajouter
+  meals_title: Repas planifiés
+  meals_hint: Les repas à prévoir chaque jour.
+  meals_save: Enregistrer les repas
+
+weekday:
+  monday: Lundi
+  tuesday: Mardi
+  wednesday: Mercredi
+  thursday: Jeudi
+  friday: Vendredi
+  saturday: Samedi
+  sunday: Dimanche
+
+month:
+  january: janvier
+  february: février
+  march: mars
+  april: avril
+  may: mai
+  june: juin
+  july: juillet
+  august: août
+  september: septembre
+  october: octobre
+  november: novembre
+  december: décembre
+
+season:
+  spring: Printemps
+  summer: Été
+  autumn: Automne
+  winter: Hiver
+
+meal:
+  lunch: Midi
+  dinner: Soir
+
+date:
+  day_month: "{{.Day}} {{.Month}}"
+  day_month_year: "{{.Day}} {{.Month}} {{.Year}}"
+
+validation:
+  name_required: Le nom est obligatoire.
+  name_too_long: "Le nom dépasse {{.Max}} caractères."
+  name_duplicate: "« {{.Name}} » existe déjà."
+  name_taken: Un des noms est déjà pris par un menu ajouté entre-temps. Rechargez la page.
+  weight_range: "{{.Field}} : saisissez un nombre entier de 0 à {{.Max}}."
+  form_invalid: Rien n'a été enregistré. Corrigez les menus signalés.
+  meals_required: Cochez au moins un repas.
+
+flash:
+  week_start_saved: Jour de début de semaine enregistré.
+  week_generated: Semaine générée.
+  week_incomplete: Semaine générée en partie. Certains repas n'ont aucun menu possible pour la saison.
+  no_dish_available: Aucun menu n'a de poids positif pour cette saison. Ajustez les poids dans les paramètres.
+  meal_rerolled: Repas relancé.
+  meal_set: Repas modifié.
+  meal_cleared: Repas vidé.
+  dish_added: Menu ajouté.
+  dishes_saved: Menus enregistrés.
+  dish_deleted: Menu supprimé.
+  meals_saved: Repas planifiés enregistrés.
+
+error:
+  title: Erreur
+  not_found: Cette page n'existe pas.
+  bad_request: La requête est invalide.
+  internal: Une erreur interne est survenue.
+  rate_limit: Trop de requêtes. Réessayez dans une minute.
+  back_home: Retour à la semaine

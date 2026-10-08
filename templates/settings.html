@@ -1,0 +1,100 @@
+{{ define "content" }}
+<h1 class="page__title">{{ T "settings.title" }}</h1>
+
+<section class="panel" aria-labelledby="dishes-title">
+  <h2 class="panel__title" id="dishes-title">{{ T "settings.dishes_title" }}</h2>
+  <p class="panel__hint">{{ T "settings.weights_hint" . }}</p>
+
+  {{ if .Rows }}
+  {{ with .SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="dishes" method="post" action="/settings/dishes/save">
+    {{ csrfField }}
+    <div class="dish dish--head" aria-hidden="true">
+      <span>{{ T "settings.name" }}</span>
+      <span>{{ T "settings.weight" }}</span>
+      {{ range .Seasons }}<span class="season season--{{ .Key }}">{{ .Label }}</span>{{ end }}
+      <span></span>
+    </div>
+    {{ range .Rows }}
+    {{ $row := . }}
+    <fieldset class="dish {{ if .Errors }}dish--invalid{{ end }}" id="dish-{{ .ID }}">
+      <legend class="visually-hidden">{{ .Name }}</legend>
+      <input type="hidden" name="id" value="{{ .ID }}">
+      <div class="field field--name">
+        <label for="name_{{ .ID }}">{{ T "settings.name" }}</label>
+        <input id="name_{{ .ID }}" name="name_{{ .ID }}" value="{{ .Name }}" required maxlength="100"
+          {{ if index .Invalid "name" }}aria-invalid="true"{{ end }}>
+      </div>
+      <div class="field field--weight">
+        <label for="weight_{{ .ID }}">{{ T "settings.weight" }}</label>
+        <input id="weight_{{ .ID }}" name="weight_{{ .ID }}" value="{{ .Weight }}" type="number" min="0" max="10" step="1" inputmode="numeric" required
+          {{ if index .Invalid "weight" }}aria-invalid="true"{{ end }}>
+      </div>
+      {{ range $i, $s := $.Seasons }}
+      <div class="field field--weight field--{{ $s.Key }}">
+        <label for="{{ $s.Key }}_{{ $row.ID }}">{{ $s.Label }}</label>
+        <input id="{{ $s.Key }}_{{ $row.ID }}" name="{{ $s.Key }}_{{ $row.ID }}" value="{{ index $row.Seasonal $i }}" type="number" min="0" max="10" step="1" inputmode="numeric" required
+          {{ if index $row.Invalid $s.Key }}aria-invalid="true"{{ end }}>
+      </div>
+      {{ end }}
+      <div class="field field--delete">
+        <button class="link-button link-button--danger" type="submit" form="delete-{{ .ID }}">{{ T "settings.delete" }}</button>
+      </div>
+      {{ if .Errors }}<ul class="field-errors">{{ range .Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+    </fieldset>
+    {{ end }}
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">{{ T "settings.save" }}</button>
+    </div>
+  </form>
+  {{ range .Rows }}
+  <form id="delete-{{ .ID }}" method="post" action="/settings/dishes/{{ .ID }}/delete" hidden>{{ csrfField }}</form>
+  {{ end }}
+  {{ else }}
+  <p class="panel__empty">{{ T "settings.no_dishes" }}</p>
+  {{ end }}
+</section>
+
+<section class="panel" id="add" aria-labelledby="add-title">
+  <h2 class="panel__title" id="add-title">{{ T "settings.add_title" }}</h2>
+  <form class="dish dish--new {{ if .New.Errors }}dish--invalid{{ end }}" method="post" action="/settings/dishes">
+    {{ csrfField }}
+    <div class="field field--name">
+      <label for="name">{{ T "settings.name" }}</label>
+      <input id="name" name="name" value="{{ .New.Name }}" required maxlength="100" placeholder="{{ T "settings.name_placeholder" }}"
+        {{ if index .New.Invalid "name" }}aria-invalid="true" autofocus{{ end }}>
+    </div>
+    <div class="field field--weight">
+      <label for="weight">{{ T "settings.weight" }}</label>
+      <input id="weight" name="weight" value="{{ .New.Weight }}" type="number" min="0" max="10" step="1" inputmode="numeric" required
+        {{ if index .New.Invalid "weight" }}aria-invalid="true"{{ end }}>
+    </div>
+    {{ range $i, $s := .Seasons }}
+    <div class="field field--weight field--{{ $s.Key }}">
+      <label for="{{ $s.Key }}">{{ $s.Label }}</label>
+      <input id="{{ $s.Key }}" name="{{ $s.Key }}" value="{{ index $.New.Seasonal $i }}" type="number" min="0" max="10" step="1" inputmode="numeric" required
+        {{ if index $.New.Invalid $s.Key }}aria-invalid="true"{{ end }}>
+    </div>
+    {{ end }}
+    <div class="field field--delete">
+      <button class="button button--primary" type="submit">{{ T "settings.add" }}</button>
+    </div>
+    {{ if .New.Errors }}<ul class="field-errors" role="alert">{{ range .New.Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+  </form>
+</section>
+
+<section class="panel" id="meals" aria-labelledby="meals-title">
+  <h2 class="panel__title" id="meals-title">{{ T "settings.meals_title" }}</h2>
+  <form class="meals-form" method="post" action="/settings/meals">
+    {{ csrfField }}
+    <fieldset>
+      <legend class="panel__hint">{{ T "settings.meals_hint" }}</legend>
+      {{ range .Meals }}
+      <label class="check"><input type="checkbox" name="meal" value="{{ .Value }}" {{ if .Selected }}checked{{ end }}> {{ .Label }}</label>
+      {{ end }}
+    </fieldset>
+    {{ with .MealsErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+    <button class="button button--quiet" type="submit">{{ T "settings.meals_save" }}</button>
+  </form>
+</section>
+{{ end }}

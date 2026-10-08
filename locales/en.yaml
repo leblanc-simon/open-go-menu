@@ -1,0 +1,125 @@
+app:
+  name: OpenMenu
+
+nav:
+  skip: Skip to content
+  label: Main navigation
+  week: Week
+  settings: Settings
+  language: Language
+
+language:
+  fr: Français
+  en: English
+
+home:
+  title: This week's menu
+  week_range: "{{.From}} to {{.To}}"
+  week_nav: Change week
+  previous_week: Previous week
+  current_week: This week
+  next_week: Next week
+  week_start: Week starts on
+  apply: Apply
+  empty_hint:
+    one: "Nothing is planned this week. A single dish is available for the draw."
+    other: "Nothing is planned this week. The draw will pick from your {{.Count}} dishes."
+  generate: Generate
+  no_dishes: Nothing is planned this week, and the dish list is empty.
+  add_dishes: Add dishes
+  today: Today
+  slot_empty: Nothing planned
+  reroll: Re-roll
+  draw_one: Draw
+  choose: Choose
+  choose_for: "Dish for {{.Meal}}, {{.Day}}"
+  set: Confirm
+  clear: Clear
+  fill: Fill the empty meals
+  regenerate: Regenerate the whole week
+
+settings:
+  title: Settings
+  dishes_title: Dishes
+  weights_hint: >-
+    Each weight ranges from 0 to 10. The higher it is, the more often the dish
+    comes up: its odds on a given day are the general weight times the
+    season's. A weight of 0 keeps it out of the draw. A new dish starts at {{.Weight}} everywhere.
+  name: Name
+  weight: General weight
+  delete: Delete
+  save: Save dishes
+  no_dishes: No dishes yet. Add one below.
+  add_title: Add a dish
+  name_placeholder: Potato gratin
+  add: Add
+  meals_title: Planned meals
+  meals_hint: The meals to plan each day.
+  meals_save: Save meals
+
+weekday:
+  monday: Monday
+  tuesday: Tuesday
+  wednesday: Wednesday
+  thursday: Thursday
+  friday: Friday
+  saturday: Saturday
+  sunday: Sunday
+
+month:
+  january: January
+  february: February
+  march: March
+  april: April
+  may: May
+  june: June
+  july: July
+  august: August
+  september: September
+  october: October
+  november: November
+  december: December
+
+season:
+  spring: Spring
+  summer: Summer
+  autumn: Autumn
+  winter: Winter
+
+meal:
+  lunch: Lunch
+  dinner: Dinner
+
+date:
+  day_month: "{{.Month}} {{.Day}}"
+  day_month_year: "{{.Month}} {{.Day}}, {{.Year}}"
+
+validation:
+  name_required: The name is required.
+  name_too_long: "The name exceeds {{.Max}} characters."
+  name_duplicate: "“{{.Name}}” already exists."
+  name_taken: One of the names was taken by a dish added meanwhile. Reload the page.
+  weight_range: "{{.Field}}: enter a whole number from 0 to {{.Max}}."
+  form_invalid: Nothing was saved. Fix the flagged dishes.
+  meals_required: Tick at least one meal.
+
+flash:
+  week_start_saved: Week start saved.
+  week_generated: Week generated.
+  week_incomplete: Week partly generated. Some meals have no dish available for the season.
+  no_dish_available: No dish has a positive weight for this season. Adjust the weights in the settings.
+  meal_rerolled: Meal re-rolled.
+  meal_set: Meal changed.
+  meal_cleared: Meal cleared.
+  dish_added: Dish added.
+  dishes_saved: Dishes saved.
+  dish_deleted: Dish deleted.
+  meals_saved: Planned meals saved.
+
+error:
+  title: Error
+  not_found: This page does not exist.
+  bad_request: The request is invalid.
+  internal: An internal error occurred.
+  rate_limit: Too many requests. Try again in a minute.
+  back_home: Back to the week

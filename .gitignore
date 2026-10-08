@@ -1,0 +1,17 @@
+# Build artifacts
+/build/
+
+# Local config and data
+/config.yaml
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS
+*.swp
+.DS_Store
+.idea/
+
+# Claude Code local artifacts
+.claude/settings.local.json
+.claude/settings.local.json.tmp.*
