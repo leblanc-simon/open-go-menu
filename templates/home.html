@@ -22,8 +22,8 @@
 
   {{ if eq .State "empty" }}
   <div class="draw draw--empty">
-    {{ if .DishCount }}
-    <p class="draw__text">{{ Tn "home.empty_hint" .DishCount }}</p>
+    {{ if .HasItems }}
+    <p class="draw__text">{{ T "home.empty_hint" }}</p>
     <form method="post" action="/plan/generate">
       {{ csrfField }}
       <input type="hidden" name="week" value="{{ .Week }}">
@@ -50,32 +50,55 @@
       </div>
       <div class="day__meals">
         {{ range .Slots }}
-        <article class="meal {{ if not .Entry }}meal--empty{{ end }}">
+        {{ $slot := . }}
+        <article class="meal {{ if not .Filled }}meal--empty{{ end }}">
           <h3 class="meal__slot">{{ .MealLabel }}</h3>
-          {{ with .Entry }}
+          {{ if .DishName }}
           <p class="meal__dish">{{ .DishName }}</p>
+          {{ else if .Components }}
+          <form class="plate" method="post" action="{{ .Action }}">
+            {{ csrfField }}
+            <input type="hidden" name="week" value="{{ $.Ref }}">
+            <input type="hidden" name="action" value="reroll">
+            <ul class="plate__items">
+              {{ range .Components }}
+              <li class="plate__item">
+                <span class="plate__kind">{{ .Label }}</span>
+                <span class="plate__name">{{ .Name }}</span>
+                <button class="plate__reroll" type="submit" name="kind" value="{{ .Key }}" title="{{ .RerollLabel }}" aria-label="{{ .RerollLabel }}">↻</button>
+              </li>
+              {{ end }}
+            </ul>
+          </form>
           {{ else }}
           <p class="meal__dish">{{ T "home.slot_empty" }}</p>
           {{ end }}
-          {{ if or $.DishCount .Entry }}
+          {{ if or $.HasItems .Filled }}
           <form class="meal__actions" method="post" action="{{ .Action }}">
             {{ csrfField }}
             <input type="hidden" name="week" value="{{ $.Ref }}">
-            {{ if $.DishCount }}
-            <button class="link-button" type="submit" name="action" value="reroll">{{ if .Entry }}{{ T "home.reroll" }}{{ else }}{{ T "home.draw_one" }}{{ end }}</button>
+            {{ if $.HasItems }}
+            <button class="link-button" type="submit" name="action" value="reroll">{{ if .Filled }}{{ T "home.reroll" }}{{ else }}{{ T "home.draw_one" }}{{ end }}</button>
             <details class="meal__choose">
               <summary class="link-button">{{ T "home.choose" }}</summary>
-              <div class="meal__picker">
-                <label class="visually-hidden" for="pick-{{ $day.Anchor }}-{{ .Meal }}">{{ .ChooseFor }}</label>
-                <select id="pick-{{ $day.Anchor }}-{{ .Meal }}" name="dish_id">
-                  {{ $current := 0 }}{{ with .Entry }}{{ $current = .DishID }}{{ end }}
-                  {{ range $.Dishes }}<option value="{{ .ID }}" {{ if eq .ID $current }}selected{{ end }}>{{ .Name }}</option>{{ end }}
-                </select>
+              <fieldset class="picker">
+                <legend class="visually-hidden">{{ .ChooseFor }}</legend>
+                {{ range $i, $c := $.Choices }}
+                {{ if eq $i 1 }}<p class="picker__or">{{ T "home.or_compose" }}</p>{{ end }}
+                {{ $cur := index $slot.Plate $c.Kind }}
+                <label class="picker__field">
+                  <span>{{ $c.Label }}</span>
+                  <select name="{{ $c.Key }}_id">
+                    <option value="">{{ T "home.none" }}</option>
+                    {{ range $c.Items }}<option value="{{ .ID }}" {{ if eq .ID $cur }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+                  </select>
+                </label>
+                {{ end }}
                 <button class="button button--quiet" type="submit" name="action" value="set">{{ T "home.set" }}</button>
-              </div>
+              </fieldset>
             </details>
             {{ end }}
-            {{ if .Entry }}<button class="link-button link-button--danger" type="submit" name="action" value="clear">{{ T "home.clear" }}</button>{{ end }}
+            {{ if .Filled }}<button class="link-button link-button--danger" type="submit" name="action" value="clear">{{ T "home.clear" }}</button>{{ end }}
           </form>
           {{ end }}
         </article>
@@ -85,7 +108,7 @@
     {{ end }}
   </ol>
 
-  {{ if and .DishCount (ne .State "empty") }}
+  {{ if and .HasItems (ne .State "empty") }}
   <div class="draw">
     {{ if eq .State "partial" }}
     <form method="post" action="/plan/generate">

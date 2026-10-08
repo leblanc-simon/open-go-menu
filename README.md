@@ -1,17 +1,22 @@
 # OpenMenu
 
-Planificateur de repas : à partir d'une liste de menus pondérés, OpenMenu tire au
-sort les repas de la semaine en tenant compte de la saison.
+Planificateur de repas : à partir de listes pondérées, OpenMenu tire au sort les
+repas de la semaine en tenant compte de la saison. Un repas est soit un **plat
+complet** (« Lasagnes »), soit un **repas composé** d'un féculent, d'une viande ou
+d'un poisson et d'un légume.
 
 - **Semaine** (page d'accueil) : la semaine courante, jour par jour, midi et soir.
   Le jour de début de semaine se règle sur la page. Une semaine vide propose
-  « Générer » ; chaque repas peut ensuite être relancé, choisi ou vidé.
-- **Paramètres** : la liste des menus, leur poids général et leurs poids par
-  saison (0 à 10), l'ajout et la suppression de menus, les repas à planifier.
+  « Générer » ; chaque repas peut ensuite être relancé, choisi ou vidé, et chaque
+  composant d'un repas composé relancé seul (↻).
+- **Paramètres** : un onglet par liste (plats complets, féculents, viandes et
+  poissons, légumes) avec poids général et poids par saison (0 à 10), ajout et
+  suppression ; un onglet Repas pour les repas à planifier et la part de repas
+  composés (0 à 100 %).
 
-Les chances d'un menu un jour donné valent `poids général × poids de la saison`
-(saisons météorologiques : hiver = déc.–fév., etc.). Un menu ne revient pas dans
-la même semaine tant qu'il reste d'autres candidats.
+Les chances d'un élément un jour donné valent `poids général × poids de la saison`
+(saisons météorologiques : hiver = déc.–fév., etc.). Un élément ne revient pas dans
+la même semaine tant qu'il reste d'autres candidats dans sa liste.
 
 Le cahier des charges complet est dans [`specs/cahier-des-charges.md`](specs/cahier-des-charges.md).
 

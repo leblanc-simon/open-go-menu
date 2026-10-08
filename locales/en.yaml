@@ -21,18 +21,22 @@ home:
   next_week: Next week
   week_start: Week starts on
   apply: Apply
-  empty_hint:
-    one: "Nothing is planned this week. A single dish is available for the draw."
-    other: "Nothing is planned this week. The draw will pick from your {{.Count}} dishes."
+  empty_hint: Nothing is planned this week.
   generate: Generate
-  no_dishes: Nothing is planned this week, and the dish list is empty.
-  add_dishes: Add dishes
+  no_dishes: Nothing is planned this week, and the lists in the settings are empty.
+  add_dishes: Fill the lists
   today: Today
   slot_empty: Nothing planned
   reroll: Re-roll
   draw_one: Draw
+  reroll_component:
+    starch: Re-roll the starch
+    protein: Re-roll the meat or fish
+    vegetable: Re-roll the vegetable
   choose: Choose
-  choose_for: "Dish for {{.Meal}}, {{.Day}}"
+  choose_for: "{{.Meal}}, {{.Day}}"
+  or_compose: "Or, with no full dish, put the meal together:"
+  none: —
   set: Confirm
   clear: Clear
   fill: Fill the empty meals
@@ -40,22 +44,49 @@ home:
 
 settings:
   title: Settings
-  dishes_title: Dishes
+  tabs_label: Settings sections
+  tab:
+    dish: Full dishes
+    starch: Starches
+    protein: Meat and fish
+    vegetable: Vegetables
+    meals: Meals
+  intro:
+    dish: Dishes that make a meal on their own.
+    starch: The starch of a composed meal.
+    protein: The meat or fish of a composed meal.
+    vegetable: The vegetable of a composed meal.
   weights_hint: >-
-    Each weight ranges from 0 to 10. The higher it is, the more often the dish
+    Each weight ranges from 0 to 10. The higher it is, the more often the item
     comes up: its odds on a given day are the general weight times the
-    season's. A weight of 0 keeps it out of the draw. A new dish starts at {{.Weight}} everywhere.
+    season's. A weight of 0 keeps it out of the draw. A new item starts at {{.Weight}} everywhere.
   name: Name
   weight: General weight
   delete: Delete
-  save: Save dishes
-  no_dishes: No dishes yet. Add one below.
-  add_title: Add a dish
-  name_placeholder: Potato gratin
-  add: Add
-  meals_title: Planned meals
+  save: Save the list
+  empty:
+    dish: No full dish yet. Add one below.
+    starch: No starch yet. Add one below.
+    protein: No meat or fish yet. Add some below.
+    vegetable: No vegetable yet. Add one below.
+  add:
+    dish: Add a full dish
+    starch: Add a starch
+    protein: Add a meat or fish
+    vegetable: Add a vegetable
+  placeholder:
+    dish: Potato gratin
+    starch: Basmati rice
+    protein: Salmon fillet
+    vegetable: Green beans
+  add_button: Add
   meals_hint: The meals to plan each day.
-  meals_save: Save meals
+  share: Share of composed meals
+  share_hint: >-
+    At 0 %, every meal is a full dish; at 100 %, every meal pairs a starch, a
+    meat or fish and a vegetable. When only one of the two forms has items
+    available, that one is drawn.
+  meals_save: Save
 
 weekday:
   monday: Monday
@@ -90,6 +121,12 @@ meal:
   lunch: Lunch
   dinner: Dinner
 
+kind:
+  dish: Full dish
+  starch: Starch
+  protein: Meat or fish
+  vegetable: Vegetable
+
 date:
   day_month: "{{.Month}} {{.Day}}"
   day_month_year: "{{.Month}} {{.Day}}, {{.Year}}"
@@ -97,24 +134,27 @@ date:
 validation:
   name_required: The name is required.
   name_too_long: "The name exceeds {{.Max}} characters."
-  name_duplicate: "“{{.Name}}” already exists."
-  name_taken: One of the names was taken by a dish added meanwhile. Reload the page.
+  name_duplicate: "“{{.Name}}” is already in this list."
+  name_taken: One of the names was taken by an item added meanwhile. Reload the page.
   weight_range: "{{.Field}}: enter a whole number from 0 to {{.Max}}."
-  form_invalid: Nothing was saved. Fix the flagged dishes.
+  form_invalid: Nothing was saved. Fix the flagged items.
   meals_required: Tick at least one meal.
+  share_range: Enter a whole number from 0 to 100.
 
 flash:
   week_start_saved: Week start saved.
   week_generated: Week generated.
-  week_incomplete: Week partly generated. Some meals have no dish available for the season.
-  no_dish_available: No dish has a positive weight for this season. Adjust the weights in the settings.
+  week_incomplete: Week partly generated. Some meals have nothing available for the season.
+  nothing_available: Nothing has a positive weight for this season. Adjust the weights in the settings.
+  nothing_chosen: Choose a full dish or at least one part of the meal.
   meal_rerolled: Meal re-rolled.
+  component_rerolled: Part of the meal re-rolled.
   meal_set: Meal changed.
   meal_cleared: Meal cleared.
-  dish_added: Dish added.
-  dishes_saved: Dishes saved.
-  dish_deleted: Dish deleted.
-  meals_saved: Planned meals saved.
+  item_added: Added to the list.
+  items_saved: List saved.
+  item_deleted: Removed from the list.
+  meals_saved: Meal settings saved.
 
 error:
   title: Error

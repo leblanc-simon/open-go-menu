@@ -500,19 +500,110 @@ input[type="checkbox"] {
     }
   }
 
-  .meal__picker {
-    display: flex;
+  /* A composed meal: one line per component, its kind in the margin. */
+  .plate__items {
+    list-style: none;
+    margin: 0.15rem 0 0;
+    padding: 0;
+  }
+
+  .plate__item {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, auto) 1fr;
+    align-items: baseline;
+    gap: 0 0.5rem;
+  }
+
+  .plate__kind {
+    font-size: 0.8125rem;
+    color: var(--muted);
+  }
+
+  .plate__name {
+    font: 1.125rem/1.35 var(--serif);
+    overflow-wrap: anywhere;
+  }
+
+  .plate__reroll {
+    justify-self: start;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ink);
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+  }
+
+  .picker {
+    display: grid;
     gap: 0.5rem;
-    margin-top: 0.5rem;
+    margin: 0.5rem 0 0;
+    padding: 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .picker__field {
+    display: grid;
+    gap: 0.15rem;
+    font-size: 0.8125rem;
+    color: var(--muted);
 
     select {
-      flex: 1;
-      min-width: 0;
+      font-size: 1rem;
+      color: var(--ink);
     }
+  }
+
+  .picker__or {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+
+  .picker .button {
+    justify-self: start;
   }
 }
 
 /* ── Settings ──────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem 1.25rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  a {
+    flex: none;
+    padding-block: 0.5rem;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+
+    &:hover {
+      color: var(--ink);
+    }
+
+    &[aria-current="page"] {
+      color: var(--ink);
+      font-weight: 600;
+      border-bottom-color: var(--accent);
+    }
+  }
+}
 
 .panel {
   margin-bottom: 2.5rem;
@@ -534,8 +625,8 @@ input[type="checkbox"] {
   }
 }
 
-/* One dish per row: name, general weight, the four seasons, delete. */
-.dish {
+/* One item per row: name, general weight, the four seasons, delete. */
+.item {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0.5rem 0.75rem;
@@ -587,15 +678,15 @@ input[type="checkbox"] {
     padding-left: 1.25rem;
   }
 
-  &.dish--head {
+  &.item--head {
     display: none;
   }
 
-  &.dish--invalid {
+  &.item--invalid {
     background: color-mix(in srgb, var(--danger) 6%, var(--surface));
   }
 
-  &.dish--new {
+  &.item--new {
     border-bottom: 0;
   }
 
@@ -612,7 +703,7 @@ input[type="checkbox"] {
       justify-items: end;
     }
 
-    &.dish--head {
+    &.item--head {
       display: grid;
       padding-block: 0 0.5rem;
       font-size: 0.8125rem;
@@ -624,7 +715,7 @@ input[type="checkbox"] {
     }
 
     /* In the list, the header row names the columns. */
-    &:not(.dish--new) label {
+    &:not(.item--new) label {
       position: absolute;
       width: 1px;
       height: 1px;
@@ -633,7 +724,7 @@ input[type="checkbox"] {
       white-space: nowrap;
     }
 
-    &.dish--new {
+    &.item--new {
       align-items: end;
     }
   }
@@ -651,6 +742,31 @@ input[type="checkbox"] {
 }
 
 .meals-form {
+  .share {
+    display: grid;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+
+    label {
+      font-weight: 600;
+    }
+
+    .panel__hint {
+      margin-bottom: 0.25rem;
+    }
+  }
+
+  .share__input {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    input {
+      width: 6rem;
+      text-align: center;
+    }
+  }
+
   fieldset {
     margin: 0 0 1rem;
     padding: 0;
@@ -662,6 +778,7 @@ input[type="checkbox"] {
 
   legend {
     width: 100%;
+    padding: 0;
   }
 
   .check {

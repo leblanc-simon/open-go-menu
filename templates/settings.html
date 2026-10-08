@@ -1,15 +1,20 @@
 {{ define "content" }}
 <h1 class="page__title">{{ T "settings.title" }}</h1>
 
-<section class="panel" aria-labelledby="dishes-title">
-  <h2 class="panel__title" id="dishes-title">{{ T "settings.dishes_title" }}</h2>
-  <p class="panel__hint">{{ T "settings.weights_hint" . }}</p>
+<nav class="tabs" aria-label="{{ T "settings.tabs_label" }}">
+  {{ range .Tabs }}<a href="{{ .URL }}" {{ if .Current }}aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
+</nav>
+
+{{ if .Kind }}
+<section class="panel" aria-labelledby="list-title">
+  <h2 class="panel__title" id="list-title">{{ T (printf "settings.tab.%s" .Kind) }}</h2>
+  <p class="panel__hint">{{ T (printf "settings.intro.%s" .Kind) }} {{ T "settings.weights_hint" . }}</p>
 
   {{ if .Rows }}
   {{ with .SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
-  <form class="dishes" method="post" action="/settings/dishes/save">
+  <form class="items" method="post" action="{{ .ListURL }}/save">
     {{ csrfField }}
-    <div class="dish dish--head" aria-hidden="true">
+    <div class="item item--head" aria-hidden="true">
       <span>{{ T "settings.name" }}</span>
       <span>{{ T "settings.weight" }}</span>
       {{ range .Seasons }}<span class="season season--{{ .Key }}">{{ .Label }}</span>{{ end }}
@@ -17,7 +22,7 @@
     </div>
     {{ range .Rows }}
     {{ $row := . }}
-    <fieldset class="dish {{ if .Errors }}dish--invalid{{ end }}" id="dish-{{ .ID }}">
+    <fieldset class="item {{ if .Errors }}item--invalid{{ end }}" id="item-{{ .ID }}">
       <legend class="visually-hidden">{{ .Name }}</legend>
       <input type="hidden" name="id" value="{{ .ID }}">
       <div class="field field--name">
@@ -48,20 +53,20 @@
     </div>
   </form>
   {{ range .Rows }}
-  <form id="delete-{{ .ID }}" method="post" action="/settings/dishes/{{ .ID }}/delete" hidden>{{ csrfField }}</form>
+  <form id="delete-{{ .ID }}" method="post" action="/settings/items/{{ .ID }}/delete" hidden>{{ csrfField }}</form>
   {{ end }}
   {{ else }}
-  <p class="panel__empty">{{ T "settings.no_dishes" }}</p>
+  <p class="panel__empty">{{ T (printf "settings.empty.%s" .Kind) }}</p>
   {{ end }}
 </section>
 
 <section class="panel" id="add" aria-labelledby="add-title">
-  <h2 class="panel__title" id="add-title">{{ T "settings.add_title" }}</h2>
-  <form class="dish dish--new {{ if .New.Errors }}dish--invalid{{ end }}" method="post" action="/settings/dishes">
+  <h2 class="panel__title" id="add-title">{{ T (printf "settings.add.%s" .Kind) }}</h2>
+  <form class="item item--new {{ if .New.Errors }}item--invalid{{ end }}" method="post" action="{{ .ListURL }}">
     {{ csrfField }}
     <div class="field field--name">
       <label for="name">{{ T "settings.name" }}</label>
-      <input id="name" name="name" value="{{ .New.Name }}" required maxlength="100" placeholder="{{ T "settings.name_placeholder" }}"
+      <input id="name" name="name" value="{{ .New.Name }}" required maxlength="100" placeholder="{{ T (printf "settings.placeholder.%s" .Kind) }}"
         {{ if index .New.Invalid "name" }}aria-invalid="true" autofocus{{ end }}>
     </div>
     <div class="field field--weight">
@@ -77,14 +82,15 @@
     </div>
     {{ end }}
     <div class="field field--delete">
-      <button class="button button--primary" type="submit">{{ T "settings.add" }}</button>
+      <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
     </div>
     {{ if .New.Errors }}<ul class="field-errors" role="alert">{{ range .New.Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
   </form>
 </section>
 
-<section class="panel" id="meals" aria-labelledby="meals-title">
-  <h2 class="panel__title" id="meals-title">{{ T "settings.meals_title" }}</h2>
+{{ else }}
+<section class="panel" aria-labelledby="meals-title">
+  <h2 class="panel__title" id="meals-title">{{ T "settings.tab.meals" }}</h2>
   <form class="meals-form" method="post" action="/settings/meals">
     {{ csrfField }}
     <fieldset>
@@ -94,7 +100,20 @@
       {{ end }}
     </fieldset>
     {{ with .MealsErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
-    <button class="button button--quiet" type="submit">{{ T "settings.meals_save" }}</button>
+
+    <div class="share">
+      <label for="composed_share">{{ T "settings.share" }}</label>
+      <p class="panel__hint" id="share-hint">{{ T "settings.share_hint" }}</p>
+      <div class="share__input">
+        <input id="composed_share" name="composed_share" value="{{ .Share }}" type="number" min="0" max="100" step="5" inputmode="numeric" required
+          aria-describedby="share-hint" {{ if .ShareErr }}aria-invalid="true"{{ end }}>
+        <span aria-hidden="true">%</span>
+      </div>
+      {{ with .ShareErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+    </div>
+
+    <button class="button button--primary" type="submit">{{ T "settings.meals_save" }}</button>
   </form>
 </section>
+{{ end }}
 {{ end }}

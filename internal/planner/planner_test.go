@@ -88,36 +88,43 @@ func targetsAll(slots []Slot) map[Slot]bool {
 	return t
 }
 
+func dishes(cs ...Candidate) Pools {
+	var p Pools
+	p[Dish] = cs
+	return p
+}
+
+func drawer(seed uint64, pools Pools, share int) Drawer {
+	return Drawer{Rng: rand.New(rand.NewPCG(seed, 1)), Pools: pools, ComposedShare: share}
+}
+
 func TestDrawNoRepeatWhileCandidatesRemain(t *testing.T) {
-	var dishes []Candidate
+	var cs []Candidate
 	for i := int64(1); i <= 20; i++ {
-		dishes = append(dishes, flat(i, 1+int(i)%10))
+		cs = append(cs, flat(i, 1+int(i)%10))
 	}
 	slots := Slots(WeekDays(day("2026-10-05")), Meals)
 	for seed := uint64(0); seed < 50; seed++ {
-		rng := rand.New(rand.NewPCG(seed, 1))
-		picks := Draw(rng, dishes, slots, nil, targetsAll(slots))
+		picks := drawer(seed, dishes(cs...), 50).Draw(slots, nil, targetsAll(slots), Plate{})
 		if len(picks) != 14 {
 			t.Fatalf("seed %d: %d picks", seed, len(picks))
 		}
 		seen := map[int64]bool{}
-		for _, id := range picks {
-			if seen[id] {
-				t.Fatalf("seed %d: dish %d repeated", seed, id)
+		for _, p := range picks {
+			if seen[p[Dish]] {
+				t.Fatalf("seed %d: dish %d repeated", seed, p[Dish])
 			}
-			seen[id] = true
+			seen[p[Dish]] = true
 		}
 	}
 }
 
 func TestDrawRespectsSeasonZero(t *testing.T) {
 	summerless := Candidate{ID: 1, Weight: 10, Seasonal: [4]int{10, 0, 10, 10}}
-	other := flat(2, 1)
 	slots := Slots(WeekDays(day("2026-07-06")), Meals)
-	rng := rand.New(rand.NewPCG(7, 7))
-	picks := Draw(rng, []Candidate{summerless, other}, slots, nil, targetsAll(slots))
-	for s, id := range picks {
-		if id == 1 {
+	picks := drawer(7, dishes(summerless, flat(2, 1)), 0).Draw(slots, nil, targetsAll(slots), Plate{})
+	for s, p := range picks {
+		if p[Dish] == 1 {
 			t.Fatalf("summer-excluded dish drawn on %v", s)
 		}
 	}
@@ -128,10 +135,8 @@ func TestDrawRespectsSeasonZero(t *testing.T) {
 }
 
 func TestDrawAvoidsConsecutiveRepeatWhenExhausted(t *testing.T) {
-	dishes := []Candidate{flat(1, 5), flat(2, 5)}
 	slots := Slots(WeekDays(day("2026-10-05")), Meals)
-	rng := rand.New(rand.NewPCG(3, 3))
-	picks := Draw(rng, dishes, slots, nil, targetsAll(slots))
+	picks := drawer(3, dishes(flat(1, 5), flat(2, 5)), 0).Draw(slots, nil, targetsAll(slots), Plate{})
 	for i := 1; i < len(slots); i++ {
 		if picks[slots[i]] == picks[slots[i-1]] {
 			t.Fatalf("consecutive repeat at %v", slots[i])
@@ -141,43 +146,143 @@ func TestDrawAvoidsConsecutiveRepeatWhenExhausted(t *testing.T) {
 
 func TestDrawNothingAvailable(t *testing.T) {
 	slots := Slots(WeekDays(day("2026-10-05")), Meals)
-	rng := rand.New(rand.NewPCG(1, 1))
-	picks := Draw(rng, []Candidate{flat(1, 0)}, slots, nil, targetsAll(slots))
-	if len(picks) != 0 {
+	if picks := drawer(1, dishes(flat(1, 0)), 50).Draw(slots, nil, targetsAll(slots), Plate{}); len(picks) != 0 {
 		t.Errorf("picks = %v", picks)
 	}
 }
 
 func TestDrawFillKeepsExistingAndAvoidsThem(t *testing.T) {
-	dishes := []Candidate{flat(1, 5), flat(2, 5), flat(3, 5)}
 	slots := Slots(WeekDays(day("2026-10-05")), []Meal{Dinner})[:3]
-	plan := map[Slot]int64{slots[0]: 1, slots[2]: 3}
+	plan := map[Slot]Plate{slots[0]: {Dish: 1}, slots[2]: {Dish: 3}}
 	targets := map[Slot]bool{slots[1]: true}
-	rng := rand.New(rand.NewPCG(9, 9))
-	picks := Draw(rng, dishes, slots, plan, targets)
-	if len(picks) != 1 || picks[slots[1]] != 2 {
+	picks := drawer(9, dishes(flat(1, 5), flat(2, 5), flat(3, 5)), 0).Draw(slots, plan, targets, Plate{})
+	if len(picks) != 1 || picks[slots[1]][Dish] != 2 {
 		t.Errorf("picks = %v, want slot 1 -> 2", picks)
 	}
 }
 
 func TestDrawAvoid(t *testing.T) {
-	dishes := []Candidate{flat(1, 5), flat(2, 5)}
 	slots := Slots([]time.Time{day("2026-10-05")}, []Meal{Dinner})
 	for seed := uint64(0); seed < 20; seed++ {
-		rng := rand.New(rand.NewPCG(seed, 0))
-		picks := Draw(rng, dishes, slots, map[Slot]int64{slots[0]: 1}, targetsAll(slots), 1)
-		if picks[slots[0]] != 2 {
+		picks := drawer(seed, dishes(flat(1, 5), flat(2, 5)), 0).
+			Draw(slots, map[Slot]Plate{slots[0]: {Dish: 1}}, targetsAll(slots), Plate{Dish: 1})
+		if picks[slots[0]][Dish] != 2 {
 			t.Fatalf("reroll kept the avoided dish")
 		}
 	}
 }
 
+// components returns pools of n items for each component kind, with
+// distinct identifiers: starches 10+, proteins 20+, vegetables 30+.
+func components(n int) Pools {
+	var p Pools
+	for i, k := range Components {
+		for j := range n {
+			p[k] = append(p[k], flat(int64(10*(i+1)+j), 5))
+		}
+	}
+	return p
+}
+
+func TestDrawComposedOnly(t *testing.T) {
+	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	pools := components(3)
+	pools[Dish] = []Candidate{flat(1, 5)}
+	picks := drawer(5, pools, 100).Draw(slots, nil, targetsAll(slots), Plate{})
+	if len(picks) != 14 {
+		t.Fatalf("picks = %d", len(picks))
+	}
+	for s, p := range picks {
+		if p[Dish] != 0 || p[Starch] == 0 || p[Protein] == 0 || p[Vegetable] == 0 {
+			t.Fatalf("TR-09: %v -> %v", s, p)
+		}
+	}
+	// Each list is tracked on its own: with 3 of each, no consecutive repeat.
+	for i := 1; i < len(slots); i++ {
+		for _, k := range Components {
+			if picks[slots[i]][k] == picks[slots[i-1]][k] {
+				t.Fatalf("consecutive %v repeat at %v", k, slots[i])
+			}
+		}
+	}
+}
+
+func TestDrawFallsBackToAvailableForm(t *testing.T) {
+	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	// TR-10: no full dish, share 0 → composed anyway.
+	picks := drawer(1, components(5), 0).Draw(slots, nil, targetsAll(slots), Plate{})
+	if len(picks) != 14 {
+		t.Fatalf("composed fallback: %d picks", len(picks))
+	}
+	// No component, share 100 → full dishes anyway.
+	picks = drawer(1, dishes(flat(1, 5), flat(2, 5)), 100).Draw(slots, nil, targetsAll(slots), Plate{})
+	for _, p := range picks {
+		if p[Dish] == 0 {
+			t.Fatal("dish fallback: composed plate drawn")
+		}
+	}
+}
+
+func TestDrawMissingComponentKindIsOmitted(t *testing.T) {
+	pools := components(5)
+	pools[Starch] = nil
+	slots := Slots([]time.Time{day("2026-10-05")}, []Meal{Dinner})
+	p := drawer(2, pools, 100).Draw(slots, nil, targetsAll(slots), Plate{})[slots[0]]
+	if p[Starch] != 0 || p[Protein] == 0 || p[Vegetable] == 0 {
+		t.Errorf("RG-09: plate = %v", p)
+	}
+}
+
+func TestDrawShare(t *testing.T) {
+	pools := components(20)
+	for i := range 20 {
+		pools[Dish] = append(pools[Dish], flat(int64(100+i), 5))
+	}
+	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	composed := 0
+	for seed := uint64(0); seed < 100; seed++ {
+		for _, p := range drawer(seed, pools, 25).Draw(slots, nil, targetsAll(slots), Plate{}) {
+			if p[Dish] == 0 {
+				composed++
+			}
+		}
+	}
+	if ratio := float64(composed) / 1400; ratio < 0.2 || ratio > 0.3 {
+		t.Errorf("composed ratio = %.2f, want ~0.25", ratio)
+	}
+}
+
+func TestDrawComponent(t *testing.T) {
+	slots := Slots(WeekDays(day("2026-10-05")), []Meal{Dinner})
+	plan := map[Slot]Plate{slots[2]: {Starch: 10, Protein: 20, Vegetable: 30}}
+	for seed := uint64(0); seed < 20; seed++ {
+		id, ok := drawer(seed, components(2), 100).DrawComponent(slots, plan, slots[2], Vegetable)
+		if !ok || id != 31 {
+			t.Fatalf("got %d, %v; want the other vegetable", id, ok)
+		}
+	}
+	if _, ok := drawer(1, dishes(flat(1, 5)), 100).DrawComponent(slots, plan, slots[2], Starch); ok {
+		t.Error("drew from an empty list")
+	}
+}
+
+func TestParseKind(t *testing.T) {
+	for _, k := range Kinds {
+		if got, ok := ParseKind(k.Key()); !ok || got != k {
+			t.Errorf("ParseKind(%q) = %v, %v", k.Key(), got, ok)
+		}
+	}
+	if _, ok := ParseKind("dessert"); ok {
+		t.Error("unknown kind accepted")
+	}
+}
+
 func TestWeightedDistribution(t *testing.T) {
-	dishes := []Candidate{flat(1, 1), flat(2, 3)}
+	pool := []Candidate{flat(1, 1), flat(2, 3)}
 	rng := rand.New(rand.NewPCG(42, 42))
 	counts := map[int64]int{}
 	for range 10000 {
-		id, _ := weighted(rng, dishes, Autumn, func(Candidate) bool { return true })
+		id, _ := weighted(rng, pool, Autumn, func(Candidate) bool { return true })
 		counts[id]++
 	}
 	ratio := float64(counts[2]) / float64(counts[1])

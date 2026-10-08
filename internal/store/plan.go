@@ -10,17 +10,18 @@ import (
 	"leblanc.io/open-menu/internal/planner"
 )
 
-// Entry is a planned meal.
+// Entry is a planned meal: its plate and the names of its items, which may
+// have been deleted since.
 type Entry struct {
-	DishID   int64
-	DishName string
+	Plate planner.Plate
+	Names [planner.KindCount]string
 }
 
-// Entries returns the plan entries between from and to, both included.
+// Entries returns the plan between from and to, both included.
 func (s *Store) Entries(ctx context.Context, from, to time.Time) (map[planner.Slot]Entry, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT p.day, p.meal, d.id, d.name
-		FROM plan_entries p JOIN dishes d ON d.id = p.dish_id
+		SELECT p.day, p.meal, p.kind, i.id, i.name
+		FROM plan_items p JOIN items i ON i.id = p.item_id
 		WHERE p.day BETWEEN ? AND ?`,
 		from.Format(planner.DateLayout), to.Format(planner.DateLayout))
 	if err != nil {
@@ -30,29 +31,45 @@ func (s *Store) Entries(ctx context.Context, from, to time.Time) (map[planner.Sl
 
 	entries := make(map[planner.Slot]Entry)
 	for rows.Next() {
-		var day, meal string
-		var e Entry
-		if err := rows.Scan(&day, &meal, &e.DishID, &e.DishName); err != nil {
+		var day, meal, kind, name string
+		var id int64
+		if err := rows.Scan(&day, &meal, &kind, &id, &name); err != nil {
 			return nil, err
 		}
 		d, err := planner.ParseDay(day)
 		if err != nil {
 			return nil, err
 		}
-		entries[planner.Slot{Day: d, Meal: planner.Meal(meal)}] = e
+		k, ok := planner.ParseKind(kind)
+		if !ok {
+			continue
+		}
+		slot := planner.Slot{Day: d, Meal: planner.Meal(meal)}
+		e := entries[slot]
+		e.Plate[k] = id
+		e.Names[k] = name
+		entries[slot] = e
 	}
 	return entries, rows.Err()
 }
 
-// SetEntries assigns dishes to slots, replacing what they held.
-func (s *Store) SetEntries(ctx context.Context, picks map[planner.Slot]int64) error {
+// SetPlates assigns plates to slots, replacing what they held.
+func (s *Store) SetPlates(ctx context.Context, plates map[planner.Slot]planner.Plate) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
-		for slot, id := range picks {
-			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO plan_entries (day, meal, dish_id) VALUES (?, ?, ?)
-				ON CONFLICT (day, meal) DO UPDATE SET dish_id = excluded.dish_id`,
-				slot.Day.Format(planner.DateLayout), string(slot.Meal), id); err != nil {
+		for slot, plate := range plates {
+			day := slot.Day.Format(planner.DateLayout)
+			if _, err := tx.ExecContext(ctx, `DELETE FROM plan_items WHERE day = ? AND meal = ?`,
+				day, string(slot.Meal)); err != nil {
 				return err
+			}
+			for k, id := range plate {
+				if id == 0 {
+					continue
+				}
+				if _, err := tx.ExecContext(ctx, `INSERT INTO plan_items (day, meal, kind, item_id) VALUES (?, ?, ?, ?)`,
+					day, string(slot.Meal), planner.Kind(k).Key(), id); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -63,7 +80,7 @@ func (s *Store) SetEntries(ctx context.Context, picks map[planner.Slot]int64) er
 func (s *Store) ClearEntries(ctx context.Context, slots ...planner.Slot) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
 		for _, slot := range slots {
-			if _, err := tx.ExecContext(ctx, `DELETE FROM plan_entries WHERE day = ? AND meal = ?`,
+			if _, err := tx.ExecContext(ctx, `DELETE FROM plan_items WHERE day = ? AND meal = ?`,
 				slot.Day.Format(planner.DateLayout), string(slot.Meal)); err != nil {
 				return err
 			}
@@ -73,9 +90,13 @@ func (s *Store) ClearEntries(ctx context.Context, slots ...planner.Slot) error {
 }
 
 const (
-	keyWeekStart = "week_start"
-	keyMeals     = "meals"
+	keyWeekStart     = "week_start"
+	keyMeals         = "meals"
+	keyComposedShare = "composed_share"
 )
+
+// DefaultComposedShare is the default share of composed meals, in percent.
+const DefaultComposedShare = 50
 
 func (s *Store) setting(ctx context.Context, key string) (string, bool, error) {
 	var v string
@@ -138,4 +159,22 @@ func (s *Store) SetMeals(ctx context.Context, meals []planner.Meal) error {
 		parts[i] = string(m)
 	}
 	return s.setSetting(ctx, keyMeals, strings.Join(parts, ","))
+}
+
+// ComposedShare returns the share of composed meals, in percent (EF-15).
+func (s *Store) ComposedShare(ctx context.Context) (int, error) {
+	v, ok, err := s.setting(ctx, keyComposedShare)
+	if err != nil || !ok {
+		return DefaultComposedShare, err
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 || n > 100 {
+		return DefaultComposedShare, nil
+	}
+	return n, nil
+}
+
+// SetComposedShare saves the share of composed meals, in percent.
+func (s *Store) SetComposedShare(ctx context.Context, share int) error {
+	return s.setSetting(ctx, keyComposedShare, strconv.Itoa(share))
 }

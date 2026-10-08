@@ -19,6 +19,7 @@ import (
 	"leblanc.io/open-go-base/csrfx"
 	"leblanc.io/open-go-base/i18n"
 
+	"leblanc.io/open-menu/internal/planner"
 	"leblanc.io/open-menu/internal/store"
 )
 
@@ -106,14 +107,29 @@ func dishValues(name string, weights ...string) url.Values {
 	return url.Values{"name": {name}, "weight": {w[0]}, "spring": {w[1]}, "summer": {w[2]}, "autumn": {w[3]}, "winter": {w[4]}}
 }
 
-func (c *client) addDishes(names ...string) {
+func (c *client) addTo(list string, names ...string) {
 	c.t.Helper()
 	for _, n := range names {
-		if _, res := c.post("/settings/dishes", dishValues(n)); res.StatusCode != http.StatusSeeOther {
-			c.t.Fatalf("add %q: status %d", n, res.StatusCode)
+		if _, res := c.post("/settings/"+list, dishValues(n)); res.StatusCode != http.StatusSeeOther {
+			c.t.Fatalf("add %q to %s: status %d", n, list, res.StatusCode)
 		}
 	}
 }
+
+func (c *client) addDishes(names ...string) {
+	c.t.Helper()
+	c.addTo("dishes", names...)
+}
+
+func (c *client) setShare(share string) {
+	c.t.Helper()
+	form := url.Values{"meal": {"lunch", "dinner"}, "composed_share": {share}}
+	if _, res := c.post("/settings/meals", form); res.StatusCode != http.StatusSeeOther {
+		c.t.Fatalf("share: status %d", res.StatusCode)
+	}
+}
+
+var plateRe = regexp.MustCompile(`<span class="plate__name">([^<]+)</span>`)
 
 var dishRe = regexp.MustCompile(`<p class="meal__dish">([^<]+)</p>`)
 
@@ -169,6 +185,9 @@ func TestGenerateWeek(t *testing.T) {
 		}
 		seen[d] = true
 	}
+	if strings.Contains(body, "plate__name") {
+		t.Error("composed meal drawn without any component")
+	}
 	// The flash is consumed.
 	if body, _ = c.get("/?week=2026-10-05"); strings.Contains(body, "Semaine générée.") {
 		t.Error("flash shown twice")
@@ -210,7 +229,7 @@ func TestSlotActions(t *testing.T) {
 	c := newClient(t)
 	c.addDishes("Soupe", "Salade", "Gratin")
 	ctx := context.Background()
-	dishes, _ := c.store.Dishes(ctx)
+	dishes, _ := c.store.Items(ctx, planner.Dish)
 
 	if _, res := c.post("/plan/2026-10-08/dinner", url.Values{"action": {"set"}, "dish_id": {itoa(dishes[0].ID)}}); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("set: %d", res.StatusCode)
@@ -221,7 +240,7 @@ func TestSlotActions(t *testing.T) {
 		t.Fatalf("entries = %v", entries)
 	}
 	for _, e := range entries {
-		if e.DishID != dishes[0].ID {
+		if e.Plate[planner.Dish] != dishes[0].ID {
 			t.Fatal("set: wrong dish")
 		}
 	}
@@ -229,7 +248,7 @@ func TestSlotActions(t *testing.T) {
 	c.post("/plan/2026-10-08/dinner", url.Values{"action": {"reroll"}})
 	entries, _ = c.store.Entries(ctx, day, day)
 	for _, e := range entries {
-		if e.DishID == dishes[0].ID {
+		if e.Plate[planner.Dish] == dishes[0].ID {
 			t.Error("TR-05: reroll kept the same dish")
 		}
 	}
@@ -254,7 +273,7 @@ func TestSettingsValidation(t *testing.T) {
 	c.addDishes("Lasagnes")
 
 	body, res := c.post("/settings/dishes", dishValues("lasagnes"))
-	if res.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(body, "existe déjà") {
+	if res.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(body, "déjà dans cette liste") {
 		t.Errorf("duplicate: status %d", res.StatusCode)
 	}
 	body, res = c.post("/settings/dishes", dishValues("Pizza", "5", "5", "11"))
@@ -266,14 +285,14 @@ func TestSettingsValidation(t *testing.T) {
 	}
 
 	// Bulk save: summer weight to 0.
-	dishes, _ := c.store.Dishes(context.Background())
+	dishes, _ := c.store.Items(context.Background(), planner.Dish)
 	id := itoa(dishes[0].ID)
 	form := url.Values{"id": {id}, "name_" + id: {"Lasagnes"}, "weight_" + id: {"8"},
 		"spring_" + id: {"5"}, "summer_" + id: {"0"}, "autumn_" + id: {"7"}, "winter_" + id: {"10"}}
 	if _, res = c.post("/settings/dishes/save", form); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: status %d", res.StatusCode)
 	}
-	dishes, _ = c.store.Dishes(context.Background())
+	dishes, _ = c.store.Items(context.Background(), planner.Dish)
 	if d := dishes[0]; d.Weight != 8 || d.Seasonal != [4]int{5, 0, 7, 10} {
 		t.Errorf("saved = %+v", d)
 	}
@@ -289,11 +308,12 @@ func TestSettingsValidation(t *testing.T) {
 func TestDeleteKeepsPlan(t *testing.T) {
 	c := newClient(t)
 	c.addDishes("Pot-au-feu")
-	dishes, _ := c.store.Dishes(context.Background())
+	dishes, _ := c.store.Items(context.Background(), planner.Dish)
 	c.post("/plan/generate", url.Values{"week": {"2026-10-05"}})
 
-	if _, res := c.post("/settings/dishes/"+itoa(dishes[0].ID)+"/delete", url.Values{}); res.StatusCode != http.StatusSeeOther {
-		t.Fatalf("delete: status %d", res.StatusCode)
+	_, res := c.post("/settings/items/"+itoa(dishes[0].ID)+"/delete", url.Values{})
+	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/settings/dishes" {
+		t.Fatalf("delete: status %d, location %q", res.StatusCode, res.Header.Get("Location"))
 	}
 	body, _ := c.get("/settings")
 	if strings.Contains(body, `value="Pot-au-feu"`) {
@@ -307,10 +327,16 @@ func TestDeleteKeepsPlan(t *testing.T) {
 
 func TestMeals(t *testing.T) {
 	c := newClient(t)
-	if _, res := c.post("/settings/meals", url.Values{}); res.StatusCode != http.StatusUnprocessableEntity {
+	if _, res := c.post("/settings/meals", url.Values{"composed_share": {"50"}}); res.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("no meal: status %d", res.StatusCode)
 	}
-	c.post("/settings/meals", url.Values{"meal": {"dinner"}})
+	if _, res := c.post("/settings/meals", url.Values{"meal": {"dinner"}, "composed_share": {"101"}}); res.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("share 101: status %d", res.StatusCode)
+	}
+	c.post("/settings/meals", url.Values{"meal": {"dinner"}, "composed_share": {"30"}})
+	if n, _ := c.store.ComposedShare(context.Background()); n != 30 {
+		t.Errorf("share = %d", n)
+	}
 	body, _ := c.get("/")
 	if strings.Contains(body, ">Midi<") || !strings.Contains(body, ">Soir<") {
 		t.Error("EF-13: lunch still shown")
@@ -346,4 +372,95 @@ func TestNotFound(t *testing.T) {
 
 func itoa(n int64) string {
 	return strconv.FormatInt(n, 10)
+}
+
+func TestComposedMeals(t *testing.T) {
+	c := newClient(t)
+	c.addTo("starches", "Riz", "Pâtes", "Pommes de terre")
+	c.addTo("proteins", "Saumon", "Poulet", "Bœuf")
+	c.addTo("vegetables", "Haricots verts", "Carottes", "Courgettes")
+	c.addDishes("Lasagnes")
+	c.setShare("100")
+
+	c.post("/plan/generate", url.Values{"week": {"2026-10-05"}})
+	body, _ := c.get("/?week=2026-10-05")
+	if n := len(plateRe.FindAllString(body, -1)); n != 42 {
+		t.Fatalf("TR-09: %d components shown, want 14 × 3", n)
+	}
+	if strings.Contains(body, "Lasagnes</p>") {
+		t.Error("TR-09: full dish drawn at 100 %")
+	}
+
+	// TR-11: re-rolling the vegetable keeps the rest.
+	ctx := context.Background()
+	day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
+	slot := planner.Slot{Day: day, Meal: planner.Dinner}
+	before, _ := c.store.Entries(ctx, day, day)
+	c.post("/plan/2026-10-08/dinner", url.Values{"action": {"reroll"}, "kind": {"vegetable"}, "week": {"2026-10-05"}})
+	after, _ := c.store.Entries(ctx, day, day)
+	b, a := before[slot].Plate, after[slot].Plate
+	if a[planner.Vegetable] == b[planner.Vegetable] || a[planner.Starch] != b[planner.Starch] || a[planner.Protein] != b[planner.Protein] {
+		t.Errorf("TR-11: before %v, after %v", b, a)
+	}
+
+	// Manual choice: a full dish replaces the components…
+	starches, _ := c.store.Items(ctx, planner.Starch)
+	dishes, _ := c.store.Items(ctx, planner.Dish)
+	c.post("/plan/2026-10-08/dinner", url.Values{"action": {"set"}, "dish_id": {itoa(dishes[0].ID)}, "starch_id": {itoa(starches[0].ID)}})
+	got, _ := c.store.Entries(ctx, day, day)
+	if p := got[slot].Plate; p != (planner.Plate{planner.Dish: dishes[0].ID}) {
+		t.Errorf("set dish: %v", p)
+	}
+	// …and components alone make a composed meal.
+	c.post("/plan/2026-10-08/dinner", url.Values{"action": {"set"}, "dish_id": {""}, "starch_id": {itoa(starches[0].ID)}})
+	got, _ = c.store.Entries(ctx, day, day)
+	if p := got[slot].Plate; p != (planner.Plate{planner.Starch: starches[0].ID}) {
+		t.Errorf("set components: %v", p)
+	}
+	// An item chosen in the wrong list is refused.
+	if _, res := c.post("/plan/2026-10-08/dinner", url.Values{"action": {"set"}, "protein_id": {itoa(starches[0].ID)}}); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("wrong list: status %d", res.StatusCode)
+	}
+	// Nothing chosen.
+	if _, res := c.post("/plan/2026-10-08/dinner", url.Values{"action": {"set"}}); res.StatusCode != http.StatusSeeOther {
+		t.Errorf("nothing chosen: status %d", res.StatusCode)
+	}
+}
+
+func TestComposedFallback(t *testing.T) {
+	c := newClient(t)
+	c.addTo("proteins", "Saumon", "Poulet")
+	c.addTo("vegetables", "Carottes", "Courgettes")
+	c.setShare("0")
+	c.post("/plan/generate", url.Values{"week": {"2026-10-05"}})
+	body, _ := c.get("/?week=2026-10-05")
+	// TR-10 and RG-09: no full dish, no starch → meat/fish + vegetable.
+	if n := len(plateRe.FindAllString(body, -1)); n != 28 {
+		t.Errorf("TR-10: %d components shown, want 14 × 2", n)
+	}
+}
+
+func TestSettingsTabs(t *testing.T) {
+	c := newClient(t)
+	for path, want := range map[string]string{
+		"/settings":            "Ajouter un plat complet",
+		"/settings/starches":   "Ajouter un féculent",
+		"/settings/proteins":   "Ajouter une viande ou un poisson",
+		"/settings/vegetables": "Ajouter un légume",
+		"/settings/meals":      "Part de repas composés",
+	} {
+		body, res := c.get(path)
+		if res.StatusCode != http.StatusOK || !strings.Contains(body, want) {
+			t.Errorf("%s: status %d, %q missing", path, res.StatusCode, want)
+		}
+	}
+	if _, res := c.get("/settings/desserts"); res.StatusCode != http.StatusNotFound {
+		t.Errorf("unknown list: status %d", res.StatusCode)
+	}
+	// TR-12: same name in two lists, not twice in one.
+	c.addTo("starches", "Riz")
+	c.addDishes("Riz")
+	if _, res := c.post("/settings/starches", dishValues("riz")); res.StatusCode != http.StatusUnprocessableEntity {
+		t.Errorf("TR-12: duplicate starch: status %d", res.StatusCode)
+	}
 }

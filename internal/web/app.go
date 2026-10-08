@@ -60,10 +60,12 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /plan/generate", a.generate)
 	mux.HandleFunc("POST /plan/{day}/{meal}", a.editSlot)
 	mux.HandleFunc("GET /settings", a.settings)
-	mux.HandleFunc("POST /settings/dishes", a.addDish)
-	mux.HandleFunc("POST /settings/dishes/save", a.saveDishes)
-	mux.HandleFunc("POST /settings/dishes/{id}/delete", a.deleteDish)
+	mux.HandleFunc("GET /settings/meals", a.mealsSettings)
 	mux.HandleFunc("POST /settings/meals", a.saveMeals)
+	mux.HandleFunc("GET /settings/{list}", a.settingsList)
+	mux.HandleFunc("POST /settings/{list}", a.addItem)
+	mux.HandleFunc("POST /settings/{list}/save", a.saveItems)
+	mux.HandleFunc("POST /settings/items/{id}/delete", a.deleteItem)
 	mux.HandleFunc("/", a.notFound)
 }
 

@@ -21,18 +21,22 @@ home:
   next_week: Semaine suivante
   week_start: La semaine commence le
   apply: Appliquer
-  empty_hint:
-    one: "Rien n'est prévu cette semaine. Un seul menu est disponible pour le tirage."
-    other: "Rien n'est prévu cette semaine. Le tirage puisera dans vos {{.Count}} menus."
+  empty_hint: Rien n'est prévu cette semaine.
   generate: Générer
-  no_dishes: Rien n'est prévu cette semaine, et la liste des menus est vide.
-  add_dishes: Ajouter des menus
+  no_dishes: Rien n'est prévu cette semaine, et les listes du paramétrage sont vides.
+  add_dishes: Remplir les listes
   today: Aujourd'hui
   slot_empty: Rien de prévu
   reroll: Relancer
   draw_one: Tirer au sort
+  reroll_component:
+    starch: Relancer le féculent
+    protein: Relancer la viande ou le poisson
+    vegetable: Relancer le légume
   choose: Choisir
-  choose_for: "Menu du {{.Meal}}, {{.Day}}"
+  choose_for: "Repas du {{.Meal}}, {{.Day}}"
+  or_compose: "Ou, sans plat complet, composez le repas :"
+  none: —
   set: Valider
   clear: Vider
   fill: Compléter les repas vides
@@ -40,22 +44,49 @@ home:
 
 settings:
   title: Paramètres
-  dishes_title: Menus
+  tabs_label: Rubriques du paramétrage
+  tab:
+    dish: Plats complets
+    starch: Féculents
+    protein: Viandes et poissons
+    vegetable: Légumes
+    meals: Repas
+  intro:
+    dish: Des plats qui font un repas à eux seuls.
+    starch: Le féculent d'un repas composé.
+    protein: La viande ou le poisson d'un repas composé.
+    vegetable: Le légume d'un repas composé.
   weights_hint: >-
-    Chaque poids va de 0 à 10. Plus il est élevé, plus le menu sort souvent :
+    Chaque poids va de 0 à 10. Plus il est élevé, plus l'élément sort souvent :
     ses chances un jour donné sont le poids général multiplié par celui de la
-    saison. Un poids à 0 l'écarte du tirage. Un nouveau menu part à {{.Weight}} partout.
+    saison. Un poids à 0 l'écarte du tirage. Un nouvel élément part à {{.Weight}} partout.
   name: Nom
   weight: Poids général
   delete: Supprimer
-  save: Enregistrer les menus
-  no_dishes: Aucun menu pour l'instant. Ajoutez-en un ci-dessous.
-  add_title: Ajouter un menu
-  name_placeholder: Gratin dauphinois
-  add: Ajouter
-  meals_title: Repas planifiés
+  save: Enregistrer la liste
+  empty:
+    dish: Aucun plat complet pour l'instant. Ajoutez-en un ci-dessous.
+    starch: Aucun féculent pour l'instant. Ajoutez-en un ci-dessous.
+    protein: Aucune viande ni aucun poisson pour l'instant. Ajoutez-en ci-dessous.
+    vegetable: Aucun légume pour l'instant. Ajoutez-en un ci-dessous.
+  add:
+    dish: Ajouter un plat complet
+    starch: Ajouter un féculent
+    protein: Ajouter une viande ou un poisson
+    vegetable: Ajouter un légume
+  placeholder:
+    dish: Gratin dauphinois
+    starch: Riz basmati
+    protein: Filet de saumon
+    vegetable: Haricots verts
+  add_button: Ajouter
   meals_hint: Les repas à prévoir chaque jour.
-  meals_save: Enregistrer les repas
+  share: Part de repas composés
+  share_hint: >-
+    À 0 %, chaque repas est un plat complet ; à 100 %, chaque repas associe un
+    féculent, une viande ou un poisson et un légume. Si une seule des deux
+    formes a des éléments disponibles, c'est elle qui est tirée.
+  meals_save: Enregistrer
 
 weekday:
   monday: Lundi
@@ -90,6 +121,12 @@ meal:
   lunch: Midi
   dinner: Soir
 
+kind:
+  dish: Plat complet
+  starch: Féculent
+  protein: Viande ou poisson
+  vegetable: Légume
+
 date:
   day_month: "{{.Day}} {{.Month}}"
   day_month_year: "{{.Day}} {{.Month}} {{.Year}}"
@@ -97,24 +134,27 @@ date:
 validation:
   name_required: Le nom est obligatoire.
   name_too_long: "Le nom dépasse {{.Max}} caractères."
-  name_duplicate: "« {{.Name}} » existe déjà."
-  name_taken: Un des noms est déjà pris par un menu ajouté entre-temps. Rechargez la page.
+  name_duplicate: "« {{.Name}} » est déjà dans cette liste."
+  name_taken: Un des noms est déjà pris par un élément ajouté entre-temps. Rechargez la page.
   weight_range: "{{.Field}} : saisissez un nombre entier de 0 à {{.Max}}."
-  form_invalid: Rien n'a été enregistré. Corrigez les menus signalés.
+  form_invalid: Rien n'a été enregistré. Corrigez les éléments signalés.
   meals_required: Cochez au moins un repas.
+  share_range: Saisissez un nombre entier de 0 à 100.
 
 flash:
   week_start_saved: Jour de début de semaine enregistré.
   week_generated: Semaine générée.
-  week_incomplete: Semaine générée en partie. Certains repas n'ont aucun menu possible pour la saison.
-  no_dish_available: Aucun menu n'a de poids positif pour cette saison. Ajustez les poids dans les paramètres.
+  week_incomplete: Semaine générée en partie. Certains repas n'ont rien de disponible pour la saison.
+  nothing_available: Rien n'a de poids positif pour cette saison. Ajustez les poids dans les paramètres.
+  nothing_chosen: Choisissez un plat complet ou au moins un élément du repas.
   meal_rerolled: Repas relancé.
+  component_rerolled: Élément du repas relancé.
   meal_set: Repas modifié.
   meal_cleared: Repas vidé.
-  dish_added: Menu ajouté.
-  dishes_saved: Menus enregistrés.
-  dish_deleted: Menu supprimé.
-  meals_saved: Repas planifiés enregistrés.
+  item_added: Ajouté à la liste.
+  items_saved: Liste enregistrée.
+  item_deleted: Retiré de la liste.
+  meals_saved: Réglages des repas enregistrés.
 
 error:
   title: Erreur
