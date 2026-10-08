@@ -59,6 +59,6 @@ ré-implémenter ces briques. Préfixe d'env `OGM_`.
 
 ## V2 — ingrédients
 
-Prévu sans refonte : migration `002` ajoutant `ingredients` et `dish_ingredients`, fiche menu
+Prévu sans refonte : nouvelle migration (`003`) ajoutant `ingredients` et `dish_ingredients`, fiche menu
 `/settings/items/{id}`, liste de courses agrégée sur la semaine. Ne pas modifier la table
 `items` pour cela.

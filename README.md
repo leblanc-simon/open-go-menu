@@ -20,6 +20,14 @@ la même semaine tant qu'il reste d'autres candidats dans sa liste.
 
 Le cahier des charges complet est dans [`specs/cahier-des-charges.md`](specs/cahier-des-charges.md).
 
+Documentation :
+
+- [Documentation technique](docs/technique.md) : architecture, cycle d'une requête,
+  tirage, stockage, traductions, JavaScript, tests.
+- [Déploiement en production](docs/deploiement.md) : binaire, configuration,
+  service systemd, reverse proxy nginx, sauvegardes, mises à jour, dépannage.
+  Fichiers prêts à l'emploi dans [`deploy/`](deploy).
+
 ## Lancer
 
 ```bash
@@ -50,8 +58,9 @@ Fichier YAML (`-c`, défaut `config.yaml`) ou variables d'environnement préfix�
 
 L'application est mono-foyer et **n'a pas d'authentification**. Exposée au-delà
 du réseau local, elle doit se placer derrière un reverse proxy qui authentifie
-(basic auth, SSO…). Elle protège ses formulaires contre le CSRF, limite le débit
-par IP et envoie une CSP stricte.
+(basic auth, SSO…) : voir [docs/deploiement.md](docs/deploiement.md). Elle
+protège ses formulaires contre le CSRF, limite le débit par IP et envoie une CSP
+stricte.
 
 ## Langues
 

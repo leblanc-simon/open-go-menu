@@ -1,0 +1,62 @@
+# OpenGoMenu — unité systemd. Voir docs/deploiement.md.
+#
+# Installation :
+#   install -m 0644 deploy/open-go-menu.service /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now open-go-menu
+
+[Unit]
+Description=OpenGoMenu, planificateur de repas
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/open-go-menu -c /etc/open-go-menu/config.yaml
+
+# Utilisateur éphémère ; la base vit dans /var/lib/open-go-menu (StateDirectory),
+# qui est aussi le répertoire courant.
+DynamicUser=yes
+StateDirectory=open-go-menu
+StateDirectoryMode=0750
+WorkingDirectory=/var/lib/open-go-menu
+UMask=0077
+
+# « Aujourd'hui » et les saisons suivent ce fuseau.
+Environment=TZ=Europe/Paris
+
+# SIGTERM déclenche un arrêt propre, borné à 15 s par l'application.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=2s
+
+# Durcissement : l'application n'a besoin que du réseau et de son répertoire d'état.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Un appel filtré échoue (EPERM) au lieu de tuer le processus.
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target
