@@ -1,7 +1,7 @@
-# OpenMenu — configuration d'exemple. Copier en config.yaml.
+# OpenGoMenu — configuration d'exemple. Copier en config.yaml.
 #
 # Toute clé peut être fournie par une variable d'environnement préfixée OGM_
-# (voir `open-menu --help`). Sans fichier config.yaml, seules les variables
+# (voir `open-go-menu --help`). Sans fichier config.yaml, seules les variables
 # d'environnement et les valeurs par défaut s'appliquent.
 #
 # Le fuseau horaire qui décide de « aujourd'hui » est celui du processus :
@@ -31,4 +31,4 @@ i18n:
 database:
   # Seul SQLite est géré.
   driver: sqlite
-  dsn: file:open-menu.db
+  dsn: file:open-go-menu.db

@@ -1,6 +1,6 @@
 mkfile_path := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 build_path  := $(mkfile_path)build/
-app_name    := open-menu
+app_name    := open-go-menu
 version     := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "develop")
 ldflags     := -s -w -X 'main.version=$(version)'
 

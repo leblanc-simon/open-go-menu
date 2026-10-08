@@ -9,8 +9,8 @@ import (
 
 	"leblanc.io/open-go-base/i18n"
 
-	"leblanc.io/open-menu/internal/planner"
-	"leblanc.io/open-menu/internal/store"
+	"leblanc.io/open-go-menu/internal/planner"
+	"leblanc.io/open-go-menu/internal/store"
 )
 
 // Week states, deciding which draw button the page offers.

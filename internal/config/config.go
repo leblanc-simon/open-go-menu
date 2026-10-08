@@ -15,4 +15,4 @@ type Config struct {
 
 // DefaultDSN is used when no database DSN is configured: a SQLite file next to
 // the binary's working directory.
-const DefaultDSN = "file:open-menu.db"
+const DefaultDSN = "file:open-go-menu.db"

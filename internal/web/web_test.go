@@ -19,8 +19,8 @@ import (
 	"leblanc.io/open-go-base/csrfx"
 	"leblanc.io/open-go-base/i18n"
 
-	"leblanc.io/open-menu/internal/planner"
-	"leblanc.io/open-menu/internal/store"
+	"leblanc.io/open-go-menu/internal/planner"
+	"leblanc.io/open-go-menu/internal/store"
 )
 
 // client drives the real handler chain (language, CSRF, routes) through a

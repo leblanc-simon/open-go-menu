@@ -8,7 +8,7 @@ import (
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
 
-	"leblanc.io/open-menu/internal/planner"
+	"leblanc.io/open-go-menu/internal/planner"
 )
 
 // DefaultWeight is the weight given to a new item, general and seasonal.

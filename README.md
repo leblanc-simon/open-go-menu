@@ -1,6 +1,6 @@
-# OpenMenu
+# OpenGoMenu
 
-Planificateur de repas : à partir de listes pondérées, OpenMenu tire au sort les
+Planificateur de repas : à partir de listes pondérées, OpenGoMenu tire au sort les
 repas de la semaine en tenant compte de la saison. Un repas est soit un **plat
 complet** (« Lasagnes »), soit un **repas composé** d'un féculent, d'une viande ou
 d'un poisson et d'un légume.
@@ -27,14 +27,14 @@ cp config.yaml.dist config.yaml
 make run            # ou : go run . -c config.yaml
 ```
 
-Puis ouvrir <http://127.0.0.1:8080>. La base SQLite (`open-menu.db`) est créée et
+Puis ouvrir <http://127.0.0.1:8080>. La base SQLite (`open-go-menu.db`) est créée et
 migrée au démarrage. Le binaire embarque gabarits, CSS/JS et traductions.
 
 ```bash
-make debug          # build/open-menu
+make debug          # build/open-go-menu
 make release        # binaires linux/darwin/windows, version = dernier tag git
 make test           # go test -race ./...
-open-menu --help    # options et variables d'environnement OGM_*
+open-go-menu --help    # options et variables d'environnement OGM_*
 ```
 
 ## Configuration

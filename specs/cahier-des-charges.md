@@ -1,4 +1,4 @@
-# OpenMenu — cahier des charges
+# OpenGoMenu — cahier des charges
 
 Application web de planification de repas : à partir de listes pondérées (plats
 complets, féculents, viandes/poissons, légumes), elle tire au sort les repas d'une

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"leblanc.io/open-menu/internal/planner"
+	"leblanc.io/open-go-menu/internal/planner"
 )
 
 // Entry is a planned meal: its plate and the names of its items, which may

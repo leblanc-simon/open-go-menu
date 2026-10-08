@@ -19,15 +19,15 @@ import (
 	"leblanc.io/open-go-base/logx"
 	"leblanc.io/open-go-base/ratelimit"
 
-	"leblanc.io/open-menu/internal/config"
-	"leblanc.io/open-menu/internal/store"
-	"leblanc.io/open-menu/internal/web"
+	"leblanc.io/open-go-menu/internal/config"
+	"leblanc.io/open-go-menu/internal/store"
+	"leblanc.io/open-go-menu/internal/web"
 )
 
 // version is injected at build time via -ldflags "-X 'main.version=...'".
 var version = "develop"
 
-const appName = "open-menu"
+const appName = "open-go-menu"
 
 //go:embed static
 var staticFiles embed.FS

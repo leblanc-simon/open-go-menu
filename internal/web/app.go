@@ -13,7 +13,7 @@ import (
 	"leblanc.io/open-go-base/csrfx"
 	"leblanc.io/open-go-base/i18n"
 
-	"leblanc.io/open-menu/internal/store"
+	"leblanc.io/open-go-menu/internal/store"
 )
 
 // App holds the dependencies of the handlers.

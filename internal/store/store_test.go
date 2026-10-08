@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"leblanc.io/open-menu/internal/planner"
+	"leblanc.io/open-go-menu/internal/planner"
 )
 
 func open(t *testing.T) *Store {

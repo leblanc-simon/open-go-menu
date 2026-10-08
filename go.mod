@@ -1,4 +1,4 @@
-module leblanc.io/open-menu
+module leblanc.io/open-go-menu
 
 go 1.26.8
 
