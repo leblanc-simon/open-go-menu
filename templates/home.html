@@ -36,7 +36,7 @@
   </div>
   {{ end }}
 
-  <ol class="days {{ if .Wide }}days--wide{{ end }}">
+  <ol class="days {{ if .Wide }}days--wide{{ end }}" data-move-here="{{ T "home.move_here" }}" data-move-swap="{{ T "home.move_swap" }}" data-move-cancel="{{ T "home.move_cancel" }}">
     {{ range .Days }}
     {{ $day := . }}
     <li class="day day--{{ .Season }} {{ if .IsToday }}day--today{{ end }}" id="{{ .Anchor }}">
@@ -51,7 +51,7 @@
       <div class="day__meals">
         {{ range .Slots }}
         {{ $slot := . }}
-        <article class="meal {{ if not .Filled }}meal--empty{{ end }}">
+        <article class="meal {{ if not .Filled }}meal--empty{{ end }}" data-slot="{{ .Key }}" {{ if .Targets }}data-movable data-move-prompt="{{ .MovePrompt }}"{{ end }}>
           <h3 class="meal__slot">{{ .MealLabel }}</h3>
           {{ if .DishName }}
           <p class="meal__dish">{{ .DishName }}</p>
@@ -96,6 +96,20 @@
                 {{ end }}
                 <button class="button button--quiet" type="submit" name="action" value="set">{{ T "home.set" }}</button>
               </fieldset>
+            </details>
+            {{ end }}
+            {{ if .Targets }}
+            <details class="meal__move">
+              <summary class="link-button">{{ T "home.move" }}</summary>
+              <div class="picker">
+                <label class="picker__field">
+                  <span>{{ T "home.move_to" }}</span>
+                  <select name="to">
+                    {{ range .Targets }}<option value="{{ .Value }}">{{ .Label }}</option>{{ end }}
+                  </select>
+                </label>
+                <button class="button button--quiet" type="submit" name="action" value="move" data-move>{{ T "home.move" }}</button>
+              </div>
             </details>
             {{ end }}
             {{ if .Filled }}<button class="link-button link-button--danger" type="submit" name="action" value="clear">{{ T "home.clear" }}</button>{{ end }}

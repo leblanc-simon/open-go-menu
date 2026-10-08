@@ -138,7 +138,27 @@ func TestPlates(t *testing.T) {
 	if e := entries[lunch]; len(entries) != 1 || e.Plate != composed || e.Names[planner.Vegetable] != "Haricots verts" {
 		t.Fatalf("a composed plate must replace the dish: %+v", entries)
 	}
-	if err := s.ClearEntries(ctx, lunch); err != nil {
+	// Swapping with the dinner of another day, then back to an empty slot.
+	dinner := planner.Slot{Day: d1.AddDate(0, 0, 2), Meal: planner.Dinner}
+	if err := s.SetPlates(ctx, map[planner.Slot]planner.Plate{dinner: {planner.Dish: soup}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SwapPlates(ctx, lunch, dinner); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ = s.Entries(ctx, d1, d1.AddDate(0, 0, 6))
+	if entries[lunch].Plate != (planner.Plate{planner.Dish: soup}) || entries[dinner].Plate != composed {
+		t.Fatalf("after swap: %+v", entries)
+	}
+	empty := planner.Slot{Day: d1.AddDate(0, 0, 3), Meal: planner.Lunch}
+	if err := s.SwapPlates(ctx, dinner, empty); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ = s.Entries(ctx, d1, d1.AddDate(0, 0, 6))
+	if _, ok := entries[dinner]; ok || entries[empty].Plate != composed || len(entries) != 2 {
+		t.Fatalf("after move to an empty slot: %+v", entries)
+	}
+	if err := s.ClearEntries(ctx, lunch, empty); err != nil {
 		t.Fatal(err)
 	}
 	if entries, _ = s.Entries(ctx, d1, d1.AddDate(0, 0, 6)); len(entries) != 0 {

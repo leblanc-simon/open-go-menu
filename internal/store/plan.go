@@ -76,6 +76,28 @@ func (s *Store) SetPlates(ctx context.Context, plates map[planner.Slot]planner.P
 	})
 }
 
+// SwapPlates exchanges the plates of two slots; an empty slot makes it a
+// move. The meal column briefly holds a placeholder, which the primary key
+// needs while both rows are in flight.
+func (s *Store) SwapPlates(ctx context.Context, a, b planner.Slot) error {
+	const parked = "~swap"
+	move := func(tx *sql.Tx, fromDay, fromMeal, toDay, toMeal string) error {
+		_, err := tx.ExecContext(ctx, `UPDATE plan_items SET day = ?, meal = ? WHERE day = ? AND meal = ?`,
+			toDay, toMeal, fromDay, fromMeal)
+		return err
+	}
+	aDay, bDay := a.Day.Format(planner.DateLayout), b.Day.Format(planner.DateLayout)
+	return s.tx(ctx, func(tx *sql.Tx) error {
+		if err := move(tx, aDay, string(a.Meal), aDay, parked); err != nil {
+			return err
+		}
+		if err := move(tx, bDay, string(b.Meal), aDay, string(a.Meal)); err != nil {
+			return err
+		}
+		return move(tx, aDay, parked, bDay, string(b.Meal))
+	})
+}
+
 // ClearEntries empties slots.
 func (s *Store) ClearEntries(ctx context.Context, slots ...planner.Slot) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {

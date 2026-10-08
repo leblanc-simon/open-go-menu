@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"leblanc.io/open-go-base/i18n"
@@ -68,7 +69,10 @@ type slotView struct {
 	Plate      planner.Plate
 	DishName   string // set for a full dish
 	Components []componentView
-	ChooseFor  string // accessible label of the picker
+	ChooseFor  string   // accessible label of the picker
+	Key        string   // day/meal, the value naming this slot as a move target
+	Targets    []option // the other slots of the week, to move this meal to
+	MovePrompt string   // shown by the script while this meal is being moved
 }
 
 type componentView struct {
@@ -158,6 +162,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 				MealLabel: loc.T("meal." + string(m)),
 				Action:    "/plan/" + d.Format(planner.DateLayout) + "/" + string(m),
 			}
+			sv.Key = slotKey(planner.Slot{Day: d, Meal: m})
 			sv.ChooseFor = loc.T("home.choose_for", map[string]any{"Meal": sv.MealLabel, "Day": dv.Weekday + " " + dv.Date})
 			if e, ok := entries[planner.Slot{Day: d, Meal: m}]; ok {
 				sv.Filled = true
@@ -179,6 +184,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 		}
 		v.Days = append(v.Days, dv)
 	}
+	moveTargets(loc, v.Days)
 	switch {
 	case filled == 0:
 		v.State = weekEmpty
@@ -342,6 +348,18 @@ func (a *App) editSlot(w http.ResponseWriter, r *http.Request) {
 		}
 		backToWeek(w, r, ref, anchor, "flash.meal_set")
 
+	case "move":
+		to, ok := parseSlotKey(r.FormValue("to"))
+		if !ok || to == slot {
+			a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
+			return
+		}
+		if err := a.Store.SwapPlates(ctx, slot, to); err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		backToWeek(w, r, ref, "day-"+to.Day.Format(planner.DateLayout), "flash.meal_moved")
+
 	case "reroll":
 		flash, err := a.reroll(ctx, slot, r.FormValue("kind"))
 		if err != nil {
@@ -423,6 +441,49 @@ func (a *App) chosenPlate(r *http.Request) (planner.Plate, bool) {
 		}
 	}
 	return plate, true
+}
+
+func slotKey(s planner.Slot) string {
+	return s.Day.Format(planner.DateLayout) + "/" + string(s.Meal)
+}
+
+func parseSlotKey(key string) (planner.Slot, bool) {
+	day, meal, _ := strings.Cut(key, "/")
+	d, err := planner.ParseDay(day)
+	m, ok := planner.ParseMeal(meal)
+	return planner.Slot{Day: d, Meal: m}, err == nil && ok
+}
+
+// moveTargets offers each filled slot the other slots of the week; moving
+// onto a filled one swaps the two meals.
+func moveTargets(loc *i18n.Localizer, days []dayView) {
+	var all []option
+	for _, d := range days {
+		for _, s := range d.Slots {
+			key := "home.move_target"
+			if s.Filled {
+				key = "home.move_target_swap"
+			}
+			all = append(all, option{Value: s.Key, Label: loc.T(key, map[string]any{"Day": d.Weekday + " " + d.Date, "Meal": s.MealLabel})})
+		}
+	}
+	prompt := func(d dayView, s slotView) string {
+		return loc.T("home.move_prompt", map[string]any{"Day": d.Weekday + " " + d.Date, "Meal": s.MealLabel})
+	}
+	for i := range days {
+		for j := range days[i].Slots {
+			s := &days[i].Slots[j]
+			if !s.Filled {
+				continue
+			}
+			s.MovePrompt = prompt(days[i], *s)
+			for _, o := range all {
+				if o.Value != s.Key {
+					s.Targets = append(s.Targets, o)
+				}
+			}
+		}
+	}
 }
 
 func containsSlot(slots []planner.Slot, s planner.Slot) bool {

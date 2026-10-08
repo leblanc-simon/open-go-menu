@@ -39,6 +39,14 @@ home:
   none: —
   set: Valider
   clear: Vider
+  move: Déplacer
+  move_to: Déplacer vers
+  move_target: "{{.Day}} — {{.Meal}}"
+  move_prompt: "{{.Day}} — {{.Meal}} : touchez la destination."
+  move_here: Mettre ici
+  move_swap: Échanger ici
+  move_cancel: Annuler
+  move_target_swap: "{{.Day}} — {{.Meal}} (échange)"
   fill: Compléter les repas vides
   regenerate: Régénérer toute la semaine
 
@@ -151,6 +159,7 @@ flash:
   component_rerolled: Élément du repas relancé.
   meal_set: Repas modifié.
   meal_cleared: Repas vidé.
+  meal_moved: Repas déplacé.
   item_added: Ajouté à la liste.
   items_saved: Liste enregistrée.
   item_deleted: Retiré de la liste.

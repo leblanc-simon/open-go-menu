@@ -53,6 +53,7 @@ auth, SSO…). C'est documenté dans le README.
 | EF-05 | Une semaine remplie propose **« Régénérer »** (re-tire tous les repas). | I |
 | EF-06 | Chaque repas peut être **relancé** individuellement (nouveau tirage pour ce seul repas, qui peut passer de plat complet à composé et inversement), **choisi** manuellement (un plat complet, ou un féculent, une viande/poisson et un légume), ou **vidé**. | I |
 | EF-09 | Dans un repas composé, chaque composant peut être **relancé seul** sans toucher aux deux autres. | I |
+| EF-16 | Un repas peut être **déplacé** vers un autre créneau de la semaine ; si ce créneau est occupé, les deux repas sont **échangés**. Sur ordinateur par glisser-déposer, sur téléphone en touchant « Déplacer » puis la destination, sans JS par un menu « Déplacer vers… ». | I |
 | EF-07 | Navigation semaine précédente / suivante / retour à la semaine courante, pour préparer la semaine à venir ou consulter l'historique. | I |
 | EF-08 | Le jour courant est mis en évidence ; la saison de chaque jour est visible. | S |
 
@@ -91,7 +92,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | Réf | Exigence |
 |---|---|
 | EI-01 | Interface responsive, utilisable sur téléphone (cas d'usage principal : en cuisine, au marché). |
-| EI-02 | Fonctionne **sans JavaScript** ; le JS n'apporte que du confort (envoi automatique du sélecteur de jour de début). |
+| EI-02 | Fonctionne **sans JavaScript** ; le JS n'apporte que du confort : envoi automatique du sélecteur de jour de début, actions sur la semaine sans rechargement ni déplacement de la page, glisser-déposer et déplacement par toucher des repas. |
 | EI-03 | Accessibilité : libellés de formulaires, focus clavier visible, contrastes AA, `prefers-reduced-motion` respecté. |
 | EI-04 | Toute action mutante suit le schéma POST → redirection → GET ; le résultat est confirmé par un message flash. |
 | EI-05 | Les erreurs de saisie réaffichent le formulaire avec les valeurs saisies et un message par champ fautif. |
@@ -154,6 +155,7 @@ Routes :
 | POST | `/plan/generate` | Génère / complète / régénère (`mode=fill|all`) la semaine |
 | POST | `/plan/{date}/{meal}` | Action sur un repas (`action=reroll|set|clear`) |
 | POST | `/plan/{date}/{meal}` | `action=reroll&kind=starch|protein|vegetable` : relance d'un seul composant |
+| POST | `/plan/{date}/{meal}` | `action=move&to=AAAA-MM-JJ/meal` : déplace ou échange le repas (EF-16) |
 | GET | `/settings` | Paramétrage, onglet Plats complets |
 | GET | `/settings/{list}` | Onglet d'une liste : `dishes`, `starches`, `proteins`, `vegetables` |
 | POST | `/settings/{list}` | Ajout d'un élément à la liste |

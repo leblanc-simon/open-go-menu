@@ -39,6 +39,14 @@ home:
   none: —
   set: Confirm
   clear: Clear
+  move: Move
+  move_to: Move to
+  move_target: "{{.Day}} — {{.Meal}}"
+  move_prompt: "{{.Day}} — {{.Meal}}: tap where to move it."
+  move_here: Move here
+  move_swap: Swap here
+  move_cancel: Cancel
+  move_target_swap: "{{.Day}} — {{.Meal}} (swap)"
   fill: Fill the empty meals
   regenerate: Regenerate the whole week
 
@@ -151,6 +159,7 @@ flash:
   component_rerolled: Part of the meal re-rolled.
   meal_set: Meal changed.
   meal_cleared: Meal cleared.
+  meal_moved: Meal moved.
   item_added: Added to the list.
   items_saved: List saved.
   item_deleted: Removed from the list.

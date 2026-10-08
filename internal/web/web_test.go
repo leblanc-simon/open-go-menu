@@ -268,6 +268,37 @@ func TestSlotActions(t *testing.T) {
 	}
 }
 
+func TestMoveMeal(t *testing.T) {
+	c := newClient(t)
+	c.addDishes("Soupe", "Salade")
+	ctx := context.Background()
+	dishes, _ := c.store.Items(ctx, planner.Dish)
+	c.post("/plan/2026-10-08/dinner", url.Values{"action": {"set"}, "dish_id": {itoa(dishes[0].ID)}})
+	c.post("/plan/2026-10-09/lunch", url.Values{"action": {"set"}, "dish_id": {itoa(dishes[1].ID)}})
+
+	body, _ := c.get("/?week=2026-10-05")
+	if !strings.Contains(body, `<option value="2026-10-09/lunch">Vendredi 9 octobre — Midi (échange)</option>`) {
+		t.Error("the move form does not offer the filled slot as a swap")
+	}
+
+	_, res := c.post("/plan/2026-10-08/dinner", url.Values{"action": {"move"}, "to": {"2026-10-09/lunch"}, "week": {"2026-10-05"}})
+	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/?week=2026-10-05#day-2026-10-09" {
+		t.Fatalf("move: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	from, to := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC), time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
+	entries, _ := c.store.Entries(ctx, from, to)
+	if entries[planner.Slot{Day: from, Meal: planner.Dinner}].Plate[planner.Dish] != dishes[1].ID ||
+		entries[planner.Slot{Day: to, Meal: planner.Lunch}].Plate[planner.Dish] != dishes[0].ID {
+		t.Fatalf("the two meals were not swapped: %+v", entries)
+	}
+
+	for _, target := range []string{"", "2026-10-08/dinner", "2026-10-08/brunch", "nope"} {
+		if _, res := c.post("/plan/2026-10-08/dinner", url.Values{"action": {"move"}, "to": {target}}); res.StatusCode != http.StatusBadRequest {
+			t.Errorf("move to %q: status %d", target, res.StatusCode)
+		}
+	}
+}
+
 func TestSettingsValidation(t *testing.T) {
 	c := newClient(t)
 	c.addDishes("Lasagnes")
