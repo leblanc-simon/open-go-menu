@@ -124,7 +124,7 @@ func (d Drawer) Draw(slots []Slot, plan map[Slot]Plate, targets map[Slot]bool, a
 			prev = plan[s]
 			continue
 		}
-		p := d.plate(SeasonOf(s.Day), used, prev)
+		p := d.plate(SeasonOf(s.Day), used, prev, avoid)
 		prev = p
 		if p.IsZero() {
 			continue
@@ -150,10 +150,7 @@ func (d Drawer) DrawComponent(slots []Slot, plan map[Slot]Plate, slot Slot, kind
 		}
 		prev = plan[s][kind]
 	}
-	if current := plan[slot][kind]; current != 0 {
-		used[kind][current] = true
-	}
-	return pick(d.Rng, d.Pools[kind], SeasonOf(slot.Day), used[kind], prev)
+	return pick(d.Rng, d.Pools[kind], SeasonOf(slot.Day), used[kind], prev, plan[slot][kind])
 }
 
 func usedItems(slots []Slot, plan map[Slot]Plate, targets map[Slot]bool, avoid Plate) [KindCount]map[int64]bool {
@@ -177,7 +174,7 @@ func usedItems(slots []Slot, plan map[Slot]Plate, targets map[Slot]bool, avoid P
 }
 
 // plate draws one meal: its form first (RG-08), then its items (RG-09).
-func (d Drawer) plate(season Season, used [KindCount]map[int64]bool, prev Plate) Plate {
+func (d Drawer) plate(season Season, used [KindCount]map[int64]bool, prev, avoid Plate) Plate {
 	dishOK := d.Pools.available(Dish, season)
 	composedOK := false
 	for _, k := range Components {
@@ -188,23 +185,25 @@ func (d Drawer) plate(season Season, used [KindCount]map[int64]bool, prev Plate)
 	switch {
 	case composedOK && (!dishOK || d.Rng.IntN(100) < d.ComposedShare):
 		for _, k := range Components {
-			if id, ok := pick(d.Rng, d.Pools[k], season, used[k], prev[k]); ok {
+			if id, ok := pick(d.Rng, d.Pools[k], season, used[k], prev[k], avoid[k]); ok {
 				p[k] = id
 			}
 		}
 	case dishOK:
-		p[Dish], _ = pick(d.Rng, d.Pools[Dish], season, used[Dish], prev[Dish])
+		p[Dish], _ = pick(d.Rng, d.Pools[Dish], season, used[Dish], prev[Dish], avoid[Dish])
 	}
 	return p
 }
 
 // pick draws one item proportionally to its effective weight. It prefers an
 // item not served yet this week; once they are exhausted, any item but the
-// previous meal's; as a last resort, any item (RG-04).
-func pick(rng *rand.Rand, pool []Candidate, season Season, used map[int64]bool, prev int64) (int64, bool) {
+// previous meal's; as a last resort, any item (RG-04). The avoid item — the
+// one being re-rolled — is only drawn again when it is the sole candidate.
+func pick(rng *rand.Rand, pool []Candidate, season Season, used map[int64]bool, prev, avoid int64) (int64, bool) {
 	filters := []func(Candidate) bool{
-		func(c Candidate) bool { return !used[c.ID] },
-		func(c Candidate) bool { return c.ID != prev },
+		func(c Candidate) bool { return !used[c.ID] && c.ID != avoid },
+		func(c Candidate) bool { return c.ID != prev && c.ID != avoid },
+		func(c Candidate) bool { return c.ID != avoid },
 		func(Candidate) bool { return true },
 	}
 	for _, keep := range filters {

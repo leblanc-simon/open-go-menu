@@ -266,6 +266,33 @@ func TestDrawComponent(t *testing.T) {
 	}
 }
 
+// A re-roll changes the item even when its list is exhausted for the week.
+func TestRerollWhenListExhausted(t *testing.T) {
+	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	pools := components(3)
+	for seed := uint64(0); seed < 50; seed++ {
+		d := drawer(seed, pools, 100)
+		plan := d.Draw(slots, nil, targetsAll(slots), Plate{})
+		slot := slots[7]
+		id, ok := d.DrawComponent(slots, plan, slot, Vegetable)
+		if !ok || id == plan[slot][Vegetable] {
+			t.Fatalf("seed %d: component re-roll kept %d", seed, id)
+		}
+		p := d.Draw(slots, plan, map[Slot]bool{slot: true}, plan[slot])[slot]
+		for _, k := range Components {
+			if p[k] == plan[slot][k] {
+				t.Fatalf("seed %d: meal re-roll kept %v %d", seed, k, p[k])
+			}
+		}
+	}
+	// With a single candidate, re-rolling gives it back rather than nothing.
+	single := dishes(flat(1, 5))
+	one := Slots([]time.Time{day("2026-10-05")}, []Meal{Dinner})
+	if p := drawer(1, single, 0).Draw(one, map[Slot]Plate{one[0]: {Dish: 1}}, targetsAll(one), Plate{Dish: 1}); p[one[0]][Dish] != 1 {
+		t.Errorf("single candidate: %v", p)
+	}
+}
+
 func TestParseKind(t *testing.T) {
 	for _, k := range Kinds {
 		if got, ok := ParseKind(k.Key()); !ok || got != k {
