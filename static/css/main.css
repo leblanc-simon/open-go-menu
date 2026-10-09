@@ -1,16 +1,18 @@
-/* OpenGoMenu — the week as a ledger of days, each ruled in its season's colour. */
+/* OpenGoMenu — the week as a ledger of days, each ruled in its season's colour.
+   The greens come from the logo; the light accent is its darker green, the
+   logo's own being short of AA contrast as text on the paper. */
 
 :root {
   color-scheme: light dark;
 
-  --paper: #f5f6f8;
+  --paper: #f4f7f3;
   --surface: #ffffff;
-  --ink: #2a2230;
-  --muted: #675f6d;
-  --line: #dcd9e0;
-  --accent: #4a2545;
+  --ink: #1f3329;
+  --muted: #56685e;
+  --line: #d4ded7;
+  --accent: #276749;
   --accent-ink: #ffffff;
-  --danger: #a3263a;
+  --danger: #c53030;
 
   --spring: #4c862d;
   --summer: #a8740a;
@@ -26,14 +28,14 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #18151b;
-    --surface: #221e26;
-    --ink: #ece7f0;
-    --muted: #a69dae;
-    --line: #3a3440;
-    --accent: #d3a6ca;
-    --accent-ink: #24121f;
-    --danger: #ef8a99;
+    --paper: #111a15;
+    --surface: #19251e;
+    --ink: #e8f5ee;
+    --muted: #9cb1a5;
+    --line: #2c3b33;
+    --accent: #68d391;
+    --accent-ink: #0f2418;
+    --danger: #fc8181;
 
     --spring: #8cc66a;
     --summer: #e3b448;
@@ -125,15 +127,20 @@ button {
 .masthead {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1.5rem;
   padding-block: 1.25rem 0.75rem;
 
   .masthead__brand {
-    font: 700 1.375rem/1.2 var(--serif);
-    color: var(--accent);
-    text-decoration: none;
+    display: block;
+    border-radius: var(--radius);
+
+    img {
+      display: block;
+      width: auto;
+      height: 3rem;
+    }
   }
 
   .masthead__nav {
@@ -209,6 +216,20 @@ button {
     background: color-mix(in srgb, var(--accent) 10%, var(--surface));
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
   }
+}
+
+/* Added by the script while offline: the page may be out of date. */
+.offline-bar {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  margin: 0;
+  padding: 0.5rem var(--gutter);
+  border-bottom: 3px solid var(--summer);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+  text-align: center;
 }
 
 /* The bar of the pick-and-place move, added by the script. */

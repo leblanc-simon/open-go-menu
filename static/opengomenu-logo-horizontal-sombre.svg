@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 40 1240 360" width="1240" height="360">
+  <!-- Icône (logo-1 réduit) -->
+  <g transform="translate(40 40) scale(0.703)">
+    <rect width="512" height="512" rx="112" fill="#2F855A"/>
+    <circle cx="210" cy="245" r="140" fill="#FFFFFF"/>
+    <circle cx="210" cy="245" r="100" fill="none" stroke="#C6F6D5" stroke-width="10"/>
+    <path d="M165 290 C165 215 215 185 270 185 C270 260 225 290 165 290 Z" fill="#48BB78"/>
+    <path d="M172 283 L245 212" stroke="#2F855A" stroke-width="7" stroke-linecap="round"/>
+    <rect x="298" y="262" width="160" height="190" rx="22" fill="#22543D" opacity="0.35"/>
+    <rect x="290" y="250" width="160" height="190" rx="22" fill="#FFF7EC"/>
+    <rect x="290" y="250" width="160" height="44" rx="22" fill="#F6AD55"/>
+    <rect x="290" y="272" width="160" height="22" fill="#F6AD55"/>
+    <path d="M312 322 l10 10 l18 -20" fill="none" stroke="#2F855A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="354" y1="324" x2="426" y2="324" stroke="#CBD5E0" stroke-width="10" stroke-linecap="round"/>
+    <path d="M312 366 l10 10 l18 -20" fill="none" stroke="#2F855A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="354" y1="368" x2="426" y2="368" stroke="#CBD5E0" stroke-width="10" stroke-linecap="round"/>
+    <rect x="313" y="400" width="24" height="24" rx="6" fill="none" stroke="#A0AEC0" stroke-width="5"/>
+    <line x1="354" y1="412" x2="410" y2="412" stroke="#CBD5E0" stroke-width="10" stroke-linecap="round"/>
+  </g>
+  <!-- Nom -->
+  <text x="450" y="240" font-family="'Nunito', 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="128" font-weight="800" letter-spacing="-2">
+    <tspan fill="#F0FFF4">Open</tspan><tspan fill="#F6AD55">Go</tspan><tspan fill="#68D391">Menu</tspan>
+  </text>
+  <!-- Accroche -->
+  <text x="454" y="310" font-family="'Nunito', 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="40" font-weight="600" fill="#A0AEC0">
+    Menus &amp; listes de courses
+  </text>
+</svg>

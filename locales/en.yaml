@@ -1,5 +1,7 @@
 app:
   name: OpenGoMenu
+  tagline: The meals of the week drawn at random, and the shopping list that goes with them.
+  offline: Offline — you are viewing the last saved version of this page.
 
 nav:
   skip: Skip to content

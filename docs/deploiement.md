@@ -194,6 +194,7 @@ Ces réglages ne sont pas cosmétiques, l'application en dépend :
 | `X-Forwarded-Proto $scheme` | Le cookie CSRF reçoit l'attribut `Secure` quand la requête d'origine est en HTTPS. |
 | Pas de `add_header` CSP, `X-Frame-Options`… | L'application les envoie déjà ; des doublons divergents seraient combinés par le navigateur (une CSP en double ne peut que restreindre davantage). HSTS, lié à TLS, est ajouté par nginx. |
 | `client_max_body_size 64k` | Les formulaires font quelques centaines d'octets. |
+| `location = /manifest.webmanifest`, `location /static/icons/` | `auth_basic off` : pour installer l'application (EI-06), Android fait récupérer manifeste et icônes par un serveur qui n'a pas les identifiants. Ils ne contiennent que le nom et le logo. L'installation exige aussi HTTPS. |
 | `location /static/` | Les ressources statiques échappent déjà à la limite de débit côté application ; nginx ajoute un cache d'une heure. Elles changent avec le binaire, d'où un délai court. |
 
 ## 5. Vérifier le déploiement

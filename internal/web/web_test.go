@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -850,5 +851,34 @@ func TestSettingsTabs(t *testing.T) {
 	c.addDishes("Riz")
 	if _, res := c.post("/settings/starches", dishValues("riz")); res.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("TR-12: duplicate starch: status %d", res.StatusCode)
+	}
+}
+
+func TestManifest(t *testing.T) {
+	c := newClient(t)
+	body, _ := c.get("/")
+	if !strings.Contains(body, `<link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">`) {
+		t.Error("EI-06: no manifest link")
+	}
+	body, res := c.get("/manifest.webmanifest?lang=en")
+	if res.StatusCode != http.StatusOK || res.Header.Get("Content-Type") != "application/manifest+json" {
+		t.Fatalf("status %d, type %q", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	var m webManifest
+	if err := json.Unmarshal([]byte(body), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.Lang != "en" || m.Display != "standalone" || m.StartURL != "/" || len(m.Shortcuts) != 2 || m.Shortcuts[1].Name != "Shopping" {
+		t.Errorf("manifest = %+v", m)
+	}
+	// Every icon is served.
+	for _, icon := range m.Icons {
+		if !strings.HasPrefix(icon.Src, "/static/") {
+			t.Errorf("icon %s", icon.Src)
+			continue
+		}
+		if _, err := os.Stat("../.." + icon.Src); err != nil {
+			t.Errorf("icon %s: %v", icon.Src, err)
+		}
 	}
 }

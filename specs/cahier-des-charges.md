@@ -118,6 +118,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | EI-03 | Accessibilité : libellés de formulaires, focus clavier visible, contrastes AA, `prefers-reduced-motion` respecté. |
 | EI-04 | Toute action mutante suit le schéma POST → redirection → GET ; le résultat est confirmé par un message flash. |
 | EI-05 | Les erreurs de saisie réaffichent le formulaire avec les valeurs saisies et un message par champ fautif. |
+| EI-06 | L'application est **installable** sur téléphone et ordinateur (application web progressive) : manifeste traduit, icônes, raccourcis Semaine et Courses. Un service worker « réseau d'abord » garde les dernières pages vues consultables hors ligne, avec un bandeau qui le signale ; hors ligne, les formulaires ne sont pas envoyés. Installation possible en HTTPS (ou sur `localhost`). |
 
 ## 5. Exigences non fonctionnelles
 
@@ -170,6 +171,8 @@ Routes :
 | Méthode | Chemin | Rôle |
 |---|---|---|
 | GET | `/` | Semaine (`?week=AAAA-MM-JJ` : n'importe quel jour de la semaine voulue) |
+| GET | `/manifest.webmanifest` | Manifeste de l'application installable, dans la langue de la requête (EI-06) |
+| GET | `/sw.js` | Service worker, servi à la racine pour couvrir tout le site (hors limiteur, `no-cache`) |
 | POST | `/week-start` | Change le jour de début de semaine |
 | POST | `/plan/generate` | Génère / complète / régénère (`mode=fill|all`) la semaine |
 | POST | `/plan/{date}/{meal}` | Action sur un repas (`action=reroll|set|clear`) |

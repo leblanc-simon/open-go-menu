@@ -26,7 +26,7 @@ internal/shopping    logique pure : lignes de la liste de courses, rayons, cases
 internal/store       SQLite : migrations, éléments, planning, réglages, articles, liste
 internal/web         handlers, vues, rendu, flash, langue, en-têtes de sécurité
 templates/           layout.html, home.html, settings.html, shopping.html, error.html
-static/              css/main.css, js/app.js, favicon.svg
+static/              css/main.css, js/app.js, logos opengomenu-logo*.svg (favicon, horizontaux avec accroche, en-tête sans accroche clair et sombre)
 locales/             fr.yaml, en.yaml
 deploy/              unité systemd, site nginx
 ```
@@ -62,6 +62,8 @@ sur `SIGINT` / `SIGTERM` (15 s au plus).
 | Méthode | Chemin | Handler | Rôle |
 |---|---|---|---|
 | GET | `/` | `home` | Semaine ; `?week=AAAA-MM-JJ` = n'importe quel jour de la semaine voulue |
+| GET | `/manifest.webmanifest` | `manifest` | Manifeste de l'application installable (EI-06) |
+| GET | `/sw.js` | `main.go` | Service worker (`static/sw.js`), servi à la racine, hors limiteur |
 | POST | `/week-start` | `setWeekStart` | Jour de début de semaine (EF-02) |
 | POST | `/plan/generate` | `generate` | Génère, complète (`mode=fill`) ou régénère (`mode=all`) la semaine |
 | POST | `/plan/{day}/{meal}` | `editSlot` | `action=reroll` (avec `kind=` : un seul composant), `set`, `clear`, `move` |
@@ -225,6 +227,27 @@ qu'utilise aussi le repli sans JS.
 
 Si l'envoi en `fetch` échoue (réseau, réponse sans `<main>`), le script retombe
 sur un envoi classique du formulaire, en y recopiant le bouton pressé.
+
+### Application installable (EI-06)
+
+- **Manifeste** `/manifest.webmanifest` (`internal/web/pwa.go`) : produit à chaque
+  requête pour être traduit (nom, description, raccourcis Semaine et Courses). Ses
+  couleurs reprennent les jetons clairs de `main.css` ; les `<meta name="theme-color">`
+  du gabarit donnent aussi la variante sombre. Le lien porte
+  `crossorigin="use-credentials"`, sans quoi le navigateur le demanderait sans les
+  identifiants de l'authentification du reverse proxy.
+- **Icônes** dans `static/icons/`, tirées des SVG du logo par Inkscape :
+  `icon-192/512.png` (coins transparents), `icon-maskable-192/512.png` et
+  `apple-touch-icon.png` (fond plein, dessin dans la zone sûre), à partir de
+  `static/opengomenu-logo-maskable.svg`. Pour les régénérer :
+  `inkscape --export-type=png --export-width=512 -o static/icons/icon-512.png static/opengomenu-logo.svg`.
+- **Service worker** `static/sw.js`, servi en `/sw.js` pour couvrir tout le site :
+  réseau d'abord pour toutes les requêtes GET de l'origine, copie mise en cache à
+  chaque réponse 200, cache utilisé seulement si le réseau échoue. En ligne, rien ne
+  change donc, même après une mise à jour du binaire. Les POST ne passent pas par
+  le cache.
+- **Hors ligne**, `app.js` affiche un bandeau (`data-offline` sur `<body>`) et
+  bloque l'envoi des formulaires, qui finiraient sur la page d'erreur du navigateur.
 
 CSS : nesting natif, modificateurs BEM écrits `&.bloc--modif` (le gabarit, ou le
 script, porte les deux classes), jetons de couleur sur `:root`, mode sombre par

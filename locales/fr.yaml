@@ -1,5 +1,7 @@
 app:
   name: OpenGoMenu
+  tagline: Les menus de la semaine tirés au sort et la liste de courses qui va avec.
+  offline: Hors ligne — vous consultez la dernière version enregistrée de cette page.
 
 nav:
   skip: Aller au contenu

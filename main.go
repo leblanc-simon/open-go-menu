@@ -97,6 +97,12 @@ func run(cfg config.Config) error {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
+	// The service worker is served from the root, so that its scope is the
+	// whole application; it is checked for updates at every visit.
+	mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFileFS(w, r, staticSub, "sw.js")
+	})
 	mux.Handle("/", limiter.Middleware(csrf.Middleware(appMux)))
 
 	addr := cfg.Web.Host + ":" + strconv.Itoa(cfg.Web.Port)

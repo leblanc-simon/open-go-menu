@@ -227,7 +227,16 @@ async function submitInPlace(form, submitter) {
 
 document.addEventListener("submit", (event) => {
   const form = event.target;
-  if (!form.closest("[data-in-place]") || form.getAttribute("method") !== "post") {
+  if (form.getAttribute("method") !== "post") {
+    return;
+  }
+  // Offline, a post could only end on the browser's error page.
+  if (!navigator.onLine) {
+    event.preventDefault();
+    showOffline();
+    return;
+  }
+  if (!form.closest("[data-in-place]")) {
     return;
   }
   event.preventDefault();
@@ -236,5 +245,32 @@ document.addEventListener("submit", (event) => {
     submitInPlace(form, event.submitter);
   }
 });
+
+// ── Installed application ─────────────────────────────────────────────────
+// The service worker makes the application installable and keeps the last
+// pages seen readable offline; a bar says when the page may be out of date.
+
+function showOffline() {
+  if (document.querySelector(".offline-bar")) {
+    return;
+  }
+  const bar = document.createElement("p");
+  bar.className = "offline-bar";
+  bar.setAttribute("role", "status");
+  bar.textContent = document.body.dataset.offline;
+  document.body.prepend(bar);
+}
+
+window.addEventListener("offline", showOffline);
+window.addEventListener("online", () => document.querySelector(".offline-bar")?.remove());
+if (!navigator.onLine) {
+  showOffline();
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    // Without it the application still works, only not offline.
+  });
+}
 
 enhance(document);

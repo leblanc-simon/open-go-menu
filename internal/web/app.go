@@ -56,6 +56,7 @@ func New(templateFS fs.FS, st *store.Store, bundle *i18n.Bundle, csrf *csrfx.Pro
 // Routes registers the handlers on mux.
 func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", a.home)
+	mux.HandleFunc("GET /manifest.webmanifest", a.manifest)
 	mux.HandleFunc("POST /week-start", a.setWeekStart)
 	mux.HandleFunc("POST /plan/generate", a.generate)
 	mux.HandleFunc("POST /plan/{day}/{meal}", a.editSlot)

@@ -62,6 +62,9 @@ ré-implémenter ces briques. Préfixe d'env `OGM_`.
 - CSS en **nesting natif** ; modificateurs BEM en `&.bloc--modif` (le gabarit porte les deux
   classes). Jetons de couleur sur `:root`, mode sombre via `prefers-color-scheme`.
 - Le JS est un confort (envoi auto du sélecteur de jour de début) : tout marche sans.
+- Application installable (EI-06) : manifeste traduit `/manifest.webmanifest` (`pwa.go`),
+  service worker `static/sw.js` servi en `/sw.js`, **réseau d'abord** (le cache ne sert que
+  hors ligne). Icônes PNG de `static/icons/` générées depuis les SVG du logo par Inkscape.
 - CSP stricte : ni style ni script inline.
 - Les textes qui varient selon la sorte d'élément (genre en français : « un féculent », « une
   viande ») ont une clé par sorte (`settings.add.<kind>`), jamais une concaténation.
