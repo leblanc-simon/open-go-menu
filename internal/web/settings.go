@@ -216,7 +216,7 @@ func (a *App) listView(w http.ResponseWriter, r *http.Request, loc *i18n.Localiz
 		v.Seasons = append(v.Seasons, seasonColumn{Key: s.Key(), Label: loc.T("season." + s.Key())})
 	}
 	if rows == nil {
-		items, err := a.Store.Items(r.Context(), kind)
+		items, err := storeOf(r.Context()).Items(r.Context(), kind)
 		if err != nil {
 			return v, err
 		}
@@ -230,7 +230,7 @@ func (a *App) listView(w http.ResponseWriter, r *http.Request, loc *i18n.Localiz
 		v.New = formOf(store.NewItem(kind, ""))
 	}
 	if kind == planner.Dish {
-		counts, err := a.Store.IngredientCounts(r.Context())
+		counts, err := storeOf(r.Context()).IngredientCounts(r.Context())
 		if err != nil {
 			return v, err
 		}
@@ -276,7 +276,7 @@ func (a *App) addItem(w http.ResponseWriter, r *http.Request) {
 	loc := a.localizer(r)
 	f, it, ok := parseItemForm(r, kind, 0, loc)
 	if ok {
-		_, err := a.Store.CreateItem(r.Context(), it)
+		_, err := storeOf(r.Context()).CreateItem(r.Context(), it)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			f.fail("name", loc.T("validation.name_duplicate", map[string]any{"Name": it.Name}))
@@ -336,7 +336,7 @@ func (a *App) saveItems(w http.ResponseWriter, r *http.Request) {
 
 	var saveErr string
 	if valid {
-		err := a.Store.UpdateItems(r.Context(), kind, items)
+		err := storeOf(r.Context()).UpdateItems(r.Context(), kind, items)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			// Clashes with an item added meanwhile, absent from this form.
@@ -368,9 +368,9 @@ func (a *App) deleteItem(w http.ResponseWriter, r *http.Request) {
 		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 		return
 	}
-	it, err := a.Store.Item(r.Context(), id)
+	it, err := storeOf(r.Context()).Item(r.Context(), id)
 	if err == nil {
-		err = a.Store.DeleteItem(r.Context(), id)
+		err = storeOf(r.Context()).DeleteItem(r.Context(), id)
 	}
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -388,15 +388,15 @@ func (a *App) mealsView(w http.ResponseWriter, r *http.Request, loc *i18n.Locali
 	ctx := r.Context()
 	v := a.basePage(w, r, loc, "meals")
 	v.View = "meals"
-	start, err := a.Store.WeekStart(ctx)
+	start, err := storeOf(ctx).WeekStart(ctx)
 	if err != nil {
 		return v, err
 	}
-	sched, err := a.Store.Schedule(ctx)
+	sched, err := storeOf(ctx).Schedule(ctx)
 	if err != nil {
 		return v, err
 	}
-	fixed, err := a.Store.FixedPlates(ctx)
+	fixed, err := storeOf(ctx).FixedPlates(ctx)
 	if err != nil {
 		return v, err
 	}
@@ -426,7 +426,7 @@ func (a *App) mealsView(w http.ResponseWriter, r *http.Request, loc *i18n.Locali
 		}
 		v.Schedule = append(v.Schedule, day)
 	}
-	share, err := a.Store.ComposedShare(ctx)
+	share, err := storeOf(ctx).ComposedShare(ctx)
 	v.Share = strconv.Itoa(share)
 	return v, err
 }
@@ -486,11 +486,11 @@ func (a *App) saveMeals(w http.ResponseWriter, r *http.Request) {
 		a.render(w, r, loc, http.StatusUnprocessableEntity, "settings", v)
 		return
 	}
-	if err := a.Store.SetSchedule(r.Context(), sched); err != nil {
+	if err := storeOf(r.Context()).SetSchedule(r.Context(), sched); err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	if err := a.Store.SetComposedShare(r.Context(), share); err != nil {
+	if err := storeOf(r.Context()).SetComposedShare(r.Context(), share); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -506,12 +506,12 @@ func (a *App) fixedMeal(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	loc := a.localizer(r)
-	items, err := a.Store.AllItems(ctx)
+	items, err := storeOf(ctx).AllItems(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	fixed, err := a.Store.FixedPlates(ctx)
+	fixed, err := storeOf(ctx).FixedPlates(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -555,7 +555,7 @@ func (a *App) saveFixedMeal(w http.ResponseWriter, r *http.Request) {
 		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 		return
 	}
-	if err := a.Store.SetFixedPlate(r.Context(), wk, plate); err != nil {
+	if err := storeOf(r.Context()).SetFixedPlate(r.Context(), wk, plate); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -568,7 +568,7 @@ func (a *App) liveDish(r *http.Request) (store.Item, error) {
 	if err != nil {
 		return store.Item{}, store.ErrNotFound
 	}
-	it, err := a.Store.Item(r.Context(), id)
+	it, err := storeOf(r.Context()).Item(r.Context(), id)
 	if err == nil && it.Kind != planner.Dish {
 		err = store.ErrNotFound
 	}
@@ -580,17 +580,17 @@ func (a *App) liveDish(r *http.Request) (store.Item, error) {
 func (a *App) dishPage(w http.ResponseWriter, r *http.Request, dish store.Item, status int, form *dishView) {
 	ctx := r.Context()
 	loc := a.localizer(r)
-	ingredients, err := a.Store.DishIngredients(ctx, dish.ID)
+	ingredients, err := storeOf(ctx).DishIngredients(ctx, dish.ID)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	suggestions, err := a.Store.ArticleSuggestions(ctx)
+	suggestions, err := storeOf(ctx).ArticleSuggestions(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	aisles, err := a.Store.AislesByName(ctx)
+	aisles, err := storeOf(ctx).AislesByName(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -653,7 +653,7 @@ func (a *App) aisleField(r *http.Request, field string) (int64, bool) {
 	if err != nil {
 		return 0, false
 	}
-	aisles, err := a.Store.Aisles(r.Context())
+	aisles, err := storeOf(r.Context()).Aisles(r.Context())
 	if err != nil {
 		return 0, false
 	}
@@ -703,7 +703,7 @@ func (a *App) addIngredient(w http.ResponseWriter, r *http.Request) {
 		f.NewErr = validQuantity(loc, f.NewQuantity)
 	}
 	if f.NewErr == "" {
-		err := a.Store.AddIngredient(r.Context(), dish.ID, f.New, f.NewQuantity, aisle)
+		err := storeOf(r.Context()).AddIngredient(r.Context(), dish.ID, f.New, f.NewQuantity, aisle)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			f.NewErr = loc.T("validation.ingredient_duplicate", map[string]any{"Name": f.New})
@@ -755,7 +755,7 @@ func (a *App) saveQuantities(w http.ResponseWriter, r *http.Request) {
 		a.dishPage(w, r, dish, http.StatusUnprocessableEntity, &f)
 		return
 	}
-	if err := a.Store.SetQuantities(r.Context(), dish.ID, quantities); err != nil {
+	if err := storeOf(r.Context()).SetQuantities(r.Context(), dish.ID, quantities); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -769,7 +769,7 @@ func (a *App) removeIngredient(w http.ResponseWriter, r *http.Request) {
 		if ingredient, err = strconv.ParseInt(r.PathValue("article"), 10, 64); err != nil {
 			err = store.ErrNotFound
 		} else {
-			err = a.Store.RemoveIngredient(r.Context(), dish.ID, ingredient)
+			err = storeOf(r.Context()).RemoveIngredient(r.Context(), dish.ID, ingredient)
 		}
 	}
 	switch {

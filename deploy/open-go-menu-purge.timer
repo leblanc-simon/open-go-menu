@@ -1,0 +1,16 @@
+# OpenGoMenu — lance open-go-menu-purge.service chaque nuit.
+#
+# Installation :
+#   install -m 0644 deploy/open-go-menu-purge.{service,timer} /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now open-go-menu-purge.timer
+
+[Unit]
+Description=OpenGoMenu, purge quotidienne des familles inactives
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

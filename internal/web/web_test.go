@@ -17,61 +17,126 @@ import (
 	"testing"
 	"time"
 
+	"leblanc.io/open-go-base/appconf"
+	"leblanc.io/open-go-base/authx"
 	"leblanc.io/open-go-base/csrfx"
 	"leblanc.io/open-go-base/i18n"
 
+	"leblanc.io/open-go-menu/internal/accounts"
+	"leblanc.io/open-go-menu/internal/families"
 	"leblanc.io/open-go-menu/internal/planner"
 	"leblanc.io/open-go-menu/internal/store"
 )
 
-// client drives the real handler chain (language, CSRF, routes) through a
-// cookie-keeping HTTP client that does not follow redirects.
+// client drives the real handler chain (language, CSRF, session, routes)
+// through a cookie-keeping HTTP client that does not follow redirects. It is
+// logged in as a family whose database is store.
 type client struct {
-	t     *testing.T
-	srv   *httptest.Server
-	http  *http.Client
-	store *store.Store
-	token string
+	t       *testing.T
+	app     *App
+	srv     *httptest.Server
+	http    *http.Client
+	store   *store.Store
+	release func() // lets store go
+	token   string
 }
 
 var csrfRe = regexp.MustCompile(`name="csrf_token" value="([0-9a-f]+)"`)
 
-func newClient(t *testing.T) *client {
+const (
+	testLogin    = "famille"
+	testPassword = "un mot de passe"
+)
+
+// newApp serves an application with its accounts and families in a
+// temporary directory.
+func newApp(t *testing.T, signup string) (*App, *httptest.Server) {
 	t.Helper()
-	st, err := store.Open(context.Background(), "file:"+filepath.Join(t.TempDir(), "web.db"))
+	dir := t.TempDir()
+	accts, err := accounts.Open(context.Background(), filepath.Join(dir, "accounts.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { st.Close() })
+	t.Cleanup(func() { accts.Close() })
+	fams, err := families.New(filepath.Join(dir, "families"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(fams.Close)
+	auth := authx.New(appconf.Auth{SessionTTL: SessionTTL, CookieSecure: "off", BcryptCost: 4}, accts.Users, accts.Sessions)
 
 	bundle, err := i18n.NewFS(os.DirFS("../../locales"), ".", "fr")
 	if err != nil {
 		t.Fatal(err)
 	}
 	csrf := csrfx.New(csrfx.WithSecure("off"))
-	app, err := New(os.DirFS("../../templates"), st, bundle, csrf, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	app, err := New(os.DirFS("../../templates"), accts, fams, auth,
+		Options{Signup: signup, InactiveMonths: 12, BcryptCost: 4},
+		bundle, csrf, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
 	// A fixed "today": Thursday 8 October 2026.
 	app.Now = func() time.Time { return time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC) }
 
-	mux := http.NewServeMux()
-	app.Routes(mux)
-	srv := httptest.NewServer(SecurityHeaders(app.RememberLanguage(csrf.Middleware(mux))))
+	srv := httptest.NewServer(SecurityHeaders(app.RememberLanguage(csrf.Middleware(app.Handler()))))
 	t.Cleanup(srv.Close)
+	return app, srv
+}
 
+// anonymous returns a client of srv without any session yet.
+func anonymous(t *testing.T, app *App, srv *httptest.Server) *client {
+	t.Helper()
 	jar, _ := cookiejar.New(nil)
-	c := &client{t: t, srv: srv, store: st, http: &http.Client{
+	c := &client{t: t, app: app, srv: srv, http: &http.Client{
 		Jar:           jar,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}}
-	body, _ := c.get("/settings")
+	body, _ := c.get("/login")
 	m := csrfRe.FindStringSubmatch(body)
 	if m == nil {
 		t.Fatal("no CSRF token in page")
 	}
 	c.token = m[1]
+	return c
+}
+
+// createFamily creates a family the way the purge and import commands do.
+func createFamily(t *testing.T, app *App, login, password string) accounts.Family {
+	t.Helper()
+	hash, _ := authx.HashPassword(password, 4)
+	fam, err := app.Accounts.CreateFamily(context.Background(), login, hash, "", app.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fam
+}
+
+// logIn logs the client in and gives it the database of the family.
+func (c *client) logIn(login, password string) {
+	c.t.Helper()
+	_, res := c.post("/login", url.Values{"email": {login}, "password": {password}})
+	if res.StatusCode != http.StatusSeeOther {
+		c.t.Fatalf("login %s: status %d", login, res.StatusCode)
+	}
+	fam, err := c.app.Accounts.FamilyByLogin(context.Background(), login)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	st, release, err := c.app.Families.Acquire(context.Background(), fam.File)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	c.t.Cleanup(release)
+	c.store, c.release = st, release
+}
+
+func newClient(t *testing.T) *client {
+	t.Helper()
+	app, srv := newApp(t, "invite")
+	createFamily(t, app, testLogin, testPassword)
+	c := anonymous(t, app, srv)
+	c.logIn(testLogin, testPassword)
 	return c
 }
 

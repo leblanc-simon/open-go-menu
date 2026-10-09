@@ -97,24 +97,24 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	loc := a.localizer(r)
 
-	start, err := a.Store.WeekStart(ctx)
+	start, err := storeOf(ctx).WeekStart(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	sched, err := a.Store.Schedule(ctx)
+	sched, err := storeOf(ctx).Schedule(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	items, err := a.Store.AllItems(ctx)
+	items, err := storeOf(ctx).AllItems(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
 	first, ref := a.week(r, start)
 	days := planner.WeekDays(first)
-	entries, err := a.Store.Entries(ctx, days[0], days[6])
+	entries, err := storeOf(ctx).Entries(ctx, days[0], days[6])
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -215,7 +215,7 @@ func (a *App) setWeekStart(w http.ResponseWriter, r *http.Request) {
 		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 		return
 	}
-	if err := a.Store.SetWeekStart(r.Context(), time.Weekday(n)); err != nil {
+	if err := storeOf(r.Context()).SetWeekStart(r.Context(), time.Weekday(n)); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -237,7 +237,7 @@ func choices(loc *i18n.Localizer, items [planner.KindCount][]store.Item) []choic
 // seeded; it seeds the generator of this draw.
 func (a *App) drawer(ctx context.Context) (planner.Drawer, error) {
 	d := planner.Drawer{Rng: rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))}
-	items, err := a.Store.AllItems(ctx)
+	items, err := storeOf(ctx).AllItems(ctx)
 	if err != nil {
 		return d, err
 	}
@@ -246,7 +246,7 @@ func (a *App) drawer(ctx context.Context) (planner.Drawer, error) {
 			d.Pools[k] = append(d.Pools[k], it.Candidate())
 		}
 	}
-	d.ComposedShare, err = a.Store.ComposedShare(ctx)
+	d.ComposedShare, err = storeOf(ctx).ComposedShare(ctx)
 	return d, err
 }
 
@@ -264,16 +264,16 @@ func (a *App) refDay(r *http.Request) (time.Time, string) {
 // weekSlots returns the slots of the week containing day and their current
 // plates.
 func (a *App) weekSlots(ctx context.Context, day time.Time) ([]planner.Slot, map[planner.Slot]planner.Plate, error) {
-	start, err := a.Store.WeekStart(ctx)
+	start, err := storeOf(ctx).WeekStart(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	sched, err := a.Store.Schedule(ctx)
+	sched, err := storeOf(ctx).Schedule(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	days := planner.WeekDays(planner.WeekStart(day, start))
-	entries, err := a.Store.Entries(ctx, days[0], days[6])
+	entries, err := storeOf(ctx).Entries(ctx, days[0], days[6])
 	if err != nil {
 		return nil, nil, err
 	}
@@ -307,7 +307,7 @@ func (a *App) generate(w http.ResponseWriter, r *http.Request) {
 	}
 	// Fixed meals are served by the week's draw only: re-rolling one meal
 	// draws it at random (EF-18).
-	fixed, err := a.Store.FixedPlates(ctx)
+	fixed, err := storeOf(ctx).FixedPlates(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -317,7 +317,7 @@ func (a *App) generate(w http.ResponseWriter, r *http.Request) {
 		d.Fixed[w] = e.Plate
 	}
 	picks := d.Draw(slots, plan, targets, planner.Plate{})
-	if err := a.Store.SetPlates(ctx, picks); err != nil {
+	if err := storeOf(ctx).SetPlates(ctx, picks); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -346,7 +346,7 @@ func (a *App) editSlot(w http.ResponseWriter, r *http.Request) {
 
 	switch r.FormValue("action") {
 	case "clear":
-		if err := a.Store.ClearEntries(ctx, slot); err != nil {
+		if err := storeOf(ctx).ClearEntries(ctx, slot); err != nil {
 			a.fail(w, r, err)
 			return
 		}
@@ -362,7 +362,7 @@ func (a *App) editSlot(w http.ResponseWriter, r *http.Request) {
 			backToWeek(w, r, ref, anchor, "flash.nothing_chosen")
 			return
 		}
-		if err := a.Store.SetPlates(ctx, map[planner.Slot]planner.Plate{slot: plate}); err != nil {
+		if err := storeOf(ctx).SetPlates(ctx, map[planner.Slot]planner.Plate{slot: plate}); err != nil {
 			a.fail(w, r, err)
 			return
 		}
@@ -374,7 +374,7 @@ func (a *App) editSlot(w http.ResponseWriter, r *http.Request) {
 			a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 			return
 		}
-		if err := a.Store.SwapPlates(ctx, slot, to); err != nil {
+		if err := storeOf(ctx).SwapPlates(ctx, slot, to); err != nil {
 			a.fail(w, r, err)
 			return
 		}
@@ -418,14 +418,14 @@ func (a *App) reroll(ctx context.Context, slot planner.Slot, kind string) (strin
 			return "flash.nothing_available", nil
 		}
 		plate[k] = id
-		return "flash.component_rerolled", a.Store.SetPlates(ctx, map[planner.Slot]planner.Plate{slot: plate})
+		return "flash.component_rerolled", storeOf(ctx).SetPlates(ctx, map[planner.Slot]planner.Plate{slot: plate})
 	}
 
 	picks := d.Draw(slots, plan, map[planner.Slot]bool{slot: true}, plate)
 	if len(picks) == 0 {
 		return "flash.nothing_available", nil
 	}
-	return "flash.meal_rerolled", a.Store.SetPlates(ctx, picks)
+	return "flash.meal_rerolled", storeOf(ctx).SetPlates(ctx, picks)
 }
 
 // chosenPlate reads the manual picker: a full dish, or else the chosen
@@ -442,7 +442,7 @@ func (a *App) chosenPlate(r *http.Request) (planner.Plate, bool) {
 		if err != nil {
 			return false
 		}
-		it, err := a.Store.Item(r.Context(), id)
+		it, err := storeOf(r.Context()).Item(r.Context(), id)
 		if err != nil || it.Kind != k {
 			return false
 		}

@@ -328,6 +328,16 @@ document.addEventListener("submit", (event) => {
     showOffline();
     return;
   }
+  // Leaving the account: the pages kept offline go first, for the browsers
+  // that ignore the Clear-Site-Data header of the response.
+  if (form.matches("[data-logout]") && "caches" in window) {
+    event.preventDefault();
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .finally(() => form.submit());
+    return;
+  }
   if (!form.closest("[data-in-place]")) {
     return;
   }

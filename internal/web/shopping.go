@@ -83,7 +83,7 @@ func slotLabel(loc *i18n.Localizer, s planner.Slot) map[string]any {
 }
 
 func (a *App) shopping(w http.ResponseWriter, r *http.Request) {
-	from, to, ok, err := a.Store.ShoppingDays(r.Context())
+	from, to, ok, err := storeOf(r.Context()).ShoppingDays(r.Context())
 	switch {
 	case err != nil:
 		a.fail(w, r, err)
@@ -95,7 +95,7 @@ func (a *App) shopping(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) newShopping(w http.ResponseWriter, r *http.Request) {
-	_, _, ok, err := a.Store.ShoppingDays(r.Context())
+	_, _, ok, err := storeOf(r.Context()).ShoppingDays(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -106,20 +106,20 @@ func (a *App) newShopping(w http.ResponseWriter, r *http.Request) {
 // completeWeek returns the last week, from the current one on, whose planned
 // meals are all filled (EF-22).
 func (a *App) completeWeek(ctx context.Context) (days []time.Time, ok bool, err error) {
-	start, err := a.Store.WeekStart(ctx)
+	start, err := storeOf(ctx).WeekStart(ctx)
 	if err != nil {
 		return nil, false, err
 	}
-	sched, err := a.Store.Schedule(ctx)
+	sched, err := storeOf(ctx).Schedule(ctx)
 	if err != nil {
 		return nil, false, err
 	}
-	last, planned, err := a.Store.LastPlannedDay(ctx)
+	last, planned, err := storeOf(ctx).LastPlannedDay(ctx)
 	if err != nil || !planned {
 		return nil, false, err
 	}
 	first := planner.WeekStart(planner.Day(a.Now()), start)
-	entries, err := a.Store.Entries(ctx, first, last)
+	entries, err := storeOf(ctx).Entries(ctx, first, last)
 	if err != nil {
 		return nil, false, err
 	}
@@ -156,7 +156,7 @@ func (a *App) creationPage(w http.ResponseWriter, r *http.Request, status int, r
 		v.ProposalTo = days[6].Format(planner.DateLayout)
 		v.Proposal = loc.T("shopping.proposal", map[string]any{"From": dayMonth(loc, days[0]), "To": dayMonthYear(loc, days[6])})
 	} else {
-		start, err := a.Store.WeekStart(ctx)
+		start, err := storeOf(ctx).WeekStart(ctx)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -184,7 +184,7 @@ func (a *App) startShopping(w http.ResponseWriter, r *http.Request) {
 		typed.DatesErr = loc.T("validation.dates_too_long", map[string]any{"Max": maxShoppingDays})
 	}
 	if typed.DatesErr != "" {
-		_, _, replaces, err := a.Store.ShoppingDays(r.Context())
+		_, _, replaces, err := storeOf(r.Context()).ShoppingDays(r.Context())
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -192,7 +192,7 @@ func (a *App) startShopping(w http.ResponseWriter, r *http.Request) {
 		a.creationPage(w, r, http.StatusUnprocessableEntity, replaces, &typed)
 		return
 	}
-	if err := a.Store.StartShopping(r.Context(), from, to); err != nil {
+	if err := storeOf(r.Context()).StartShopping(r.Context(), from, to); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -204,37 +204,37 @@ func (a *App) startShopping(w http.ResponseWriter, r *http.Request) {
 func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from, to time.Time, typed *shoppingView) {
 	ctx := r.Context()
 	loc := a.localizer(r)
-	sched, err := a.Store.Schedule(ctx)
+	sched, err := storeOf(ctx).Schedule(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	rows, err := a.Store.ShoppingRows(ctx, from, to)
+	rows, err := storeOf(ctx).ShoppingRows(ctx, from, to)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	ticked, err := a.Store.Ticked(ctx)
+	ticked, err := storeOf(ctx).Ticked(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	aisles, err := a.Store.Aisles(ctx)
+	aisles, err := storeOf(ctx).Aisles(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	missing, err := a.Store.DishesWithoutIngredients(ctx, from, to)
+	missing, err := storeOf(ctx).DishesWithoutIngredients(ctx, from, to)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	suggestions, err := a.Store.ArticleSuggestions(ctx)
+	suggestions, err := storeOf(ctx).ArticleSuggestions(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	choices, err := a.Store.AislesByName(ctx)
+	choices, err := storeOf(ctx).AislesByName(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -327,7 +327,7 @@ func lineOf(loc *i18n.Localizer, l shopping.Line, anchor string) lineView {
 // currentList returns the days of the list, redirecting to its creation when
 // there is none.
 func (a *App) currentList(w http.ResponseWriter, r *http.Request) (from, to time.Time, ok bool) {
-	from, to, ok, err := a.Store.ShoppingDays(r.Context())
+	from, to, ok, err := storeOf(r.Context()).ShoppingDays(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
 		return from, to, false
@@ -354,7 +354,7 @@ func (a *App) addExtra(w http.ResponseWriter, r *http.Request) {
 		typed.ExtraErr = validQuantity(loc, typed.ExtraQuantity)
 	}
 	if typed.ExtraErr == "" {
-		err := a.Store.AddExtra(r.Context(), typed.ExtraName, typed.ExtraQuantity)
+		err := storeOf(r.Context()).AddExtra(r.Context(), typed.ExtraName, typed.ExtraQuantity)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			typed.ExtraErr = loc.T("validation.extra_duplicate", map[string]any{"Name": typed.ExtraName})
@@ -393,18 +393,18 @@ func (a *App) shoppingLine(w http.ResponseWriter, r *http.Request) {
 			a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 			return
 		}
-		err = a.Store.Tick(ctx, id, needs)
+		err = storeOf(ctx).Tick(ctx, id, needs)
 	case "untick":
-		err = a.Store.Untick(ctx, id)
+		err = storeOf(ctx).Untick(ctx, id)
 	case "remove":
-		err, flash = a.Store.RemoveExtra(ctx, id), "flash.extra_removed"
+		err, flash = storeOf(ctx).RemoveExtra(ctx, id), "flash.extra_removed"
 	case "aisle":
 		aisle, ok := a.aisleField(r, "aisle")
 		if !ok {
 			a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 			return
 		}
-		err, flash = a.Store.SetArticleAisle(ctx, id, aisle), "flash.article_filed"
+		err, flash = storeOf(ctx).SetArticleAisle(ctx, id, aisle), "flash.article_filed"
 	default:
 		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 		return

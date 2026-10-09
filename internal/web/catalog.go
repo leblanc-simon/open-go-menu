@@ -73,12 +73,12 @@ func (a *App) readNames(r *http.Request, loc *i18n.Localizer, withAisle bool) ([
 func (a *App) articlesPage(w http.ResponseWriter, r *http.Request, status int, rows []nameRow, newRow *nameRow, saveErr string) {
 	ctx := r.Context()
 	loc := a.localizer(r)
-	articles, err := a.Store.Articles(ctx)
+	articles, err := storeOf(ctx).Articles(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	aisles, err := a.Store.AislesByName(ctx)
+	aisles, err := storeOf(ctx).AislesByName(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -123,7 +123,7 @@ func (a *App) addArticle(w http.ResponseWriter, r *http.Request) {
 	if msg := validName(loc, row.Name); msg != "" {
 		row.fail(msg)
 	} else {
-		_, err := a.Store.CreateArticle(r.Context(), row.Name, aisle)
+		_, err := storeOf(r.Context()).CreateArticle(r.Context(), row.Name, aisle)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			row.fail(loc.T("validation.article_duplicate", map[string]any{"Name": row.Name}))
@@ -151,7 +151,7 @@ func (a *App) saveArticles(w http.ResponseWriter, r *http.Request) {
 		for i, row := range rows {
 			articles[i] = store.Article{ID: row.ID, Name: row.Name, Aisle: row.Aisle}
 		}
-		err := a.Store.UpdateArticles(r.Context(), articles)
+		err := storeOf(r.Context()).UpdateArticles(r.Context(), articles)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			saveErr = loc.T("validation.name_taken")
@@ -169,7 +169,7 @@ func (a *App) saveArticles(w http.ResponseWriter, r *http.Request) {
 func (a *App) deleteArticle(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err == nil {
-		err = a.Store.DeleteArticle(r.Context(), id)
+		err = storeOf(r.Context()).DeleteArticle(r.Context(), id)
 	} else {
 		err = store.ErrNotFound
 	}
@@ -189,7 +189,7 @@ func (a *App) deleteArticle(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) aislesPage(w http.ResponseWriter, r *http.Request, status int, rows []nameRow, newRow *nameRow, saveErr string) {
 	loc := a.localizer(r)
-	aisles, err := a.Store.Aisles(r.Context())
+	aisles, err := storeOf(r.Context()).Aisles(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -227,7 +227,7 @@ func (a *App) addAisle(w http.ResponseWriter, r *http.Request) {
 	if msg := validName(loc, row.Name); msg != "" {
 		row.fail(msg)
 	} else {
-		_, err := a.Store.CreateAisle(r.Context(), row.Name)
+		_, err := storeOf(r.Context()).CreateAisle(r.Context(), row.Name)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			row.fail(loc.T("validation.aisle_duplicate", map[string]any{"Name": row.Name}))
@@ -255,7 +255,7 @@ func (a *App) saveAisles(w http.ResponseWriter, r *http.Request) {
 		for i, row := range rows {
 			aisles[i] = store.Aisle{ID: row.ID, Name: row.Name}
 		}
-		err := a.Store.RenameAisles(r.Context(), aisles)
+		err := storeOf(r.Context()).RenameAisles(r.Context(), aisles)
 		switch {
 		case errors.Is(err, store.ErrDuplicateName):
 			saveErr = loc.T("validation.name_taken")
@@ -277,7 +277,7 @@ func (a *App) moveAisle(w http.ResponseWriter, r *http.Request) {
 		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
 		return
 	}
-	err = a.Store.MoveAisle(r.Context(), id, dir == "up")
+	err = storeOf(r.Context()).MoveAisle(r.Context(), id, dir == "up")
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		a.notFound(w, r)
@@ -303,7 +303,7 @@ func (a *App) orderAisles(w http.ResponseWriter, r *http.Request) {
 		}
 		ids = append(ids, id)
 	}
-	err := a.Store.SetAisleOrder(r.Context(), ids)
+	err := storeOf(r.Context()).SetAisleOrder(r.Context(), ids)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		// A list changed meanwhile, in another tab.
@@ -318,7 +318,7 @@ func (a *App) orderAisles(w http.ResponseWriter, r *http.Request) {
 func (a *App) deleteAisle(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err == nil {
-		err = a.Store.DeleteAisle(r.Context(), id)
+		err = storeOf(r.Context()).DeleteAisle(r.Context(), id)
 	} else {
 		err = store.ErrNotFound
 	}

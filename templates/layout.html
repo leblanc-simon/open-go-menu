@@ -23,11 +23,14 @@
         <img src="/static/opengomenu-logo-entete.svg" alt="{{ T "app.name" }}" width="1180" height="360">
       </picture>
     </a>
+    {{ if .Family }}
     <nav class="masthead__nav" aria-label="{{ T "nav.label" }}">
       <a href="/" {{ if eq .Nav "home" }}aria-current="page"{{ end }}>{{ T "nav.week" }}</a>
       <a href="/shopping" {{ if eq .Nav "shopping" }}aria-current="page"{{ end }}>{{ T "nav.shopping" }}</a>
       <a href="/settings" {{ if eq .Nav "settings" }}aria-current="page"{{ end }}>{{ T "nav.settings" }}</a>
+      <a href="/account" {{ if eq .Nav "account" }}aria-current="page"{{ end }}>{{ T "nav.account" }}</a>
     </nav>
+    {{ end }}
   </header>
 
   <main id="main" class="page">

@@ -145,7 +145,8 @@ button {
 
   .masthead__nav {
     display: flex;
-    gap: 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
 
     a {
       color: var(--muted);
@@ -290,6 +291,17 @@ button {
 
   &.button--quiet {
     background: transparent;
+  }
+
+  &.button--danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: var(--paper);
+    font-weight: 600;
+
+    &:hover {
+      background: color-mix(in srgb, var(--danger) 85%, var(--ink));
+    }
   }
 
   &.button--large {
@@ -1152,6 +1164,67 @@ input[type="checkbox"] {
   &:disabled {
     opacity: 0.35;
     cursor: default;
+  }
+}
+
+/* ── Accounts ──────────────────────────────────────────────────────────── */
+
+.auth {
+  max-width: 28rem;
+
+  .auth__notice {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--summer);
+    background: color-mix(in srgb, var(--summer) 10%, var(--surface));
+    border-radius: 0 var(--radius) var(--radius) 0;
+  }
+
+  .auth__switch {
+    margin-top: 1.5rem;
+  }
+}
+
+.auth__form {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+  max-width: 28rem;
+
+  .auth__field {
+    display: grid;
+    gap: 0.25rem;
+    width: 100%;
+
+    label {
+      font-weight: 600;
+    }
+  }
+
+  .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.auth__hint {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.auth__form + .auth__hint {
+  margin-top: 0.75rem;
+}
+
+.panel.panel--danger {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+
+  .panel__title {
+    color: var(--danger);
   }
 }
 

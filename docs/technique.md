@@ -20,7 +20,10 @@ est décrit dans [deploiement.md](deploiement.md).
 
 ```
 main.go              câblage, go:embed, pile de middlewares, arrêt propre
-internal/config      Config = fragments appconf (Web, Logging, I18n, Database), préfixe OGM_
+cli.go               commandes d'administration : create-family, reset-password, invite, families, purge
+internal/config      Config = fragments appconf (Web, Logging, I18n, Auth) + Families, préfixe OGM_
+internal/accounts    base des comptes : familles, invitations, à côté des users/sessions d'authx
+internal/families    registre des bases de familles (une SQLite par famille)
 internal/planner     logique pure : saisons, bornes de semaine, tirage pondéré
 internal/shopping    logique pure : lignes de la liste de courses, rayons, cases cochées
 internal/store       SQLite : migrations, éléments, planning, réglages, articles, liste
@@ -36,8 +39,10 @@ deploy/              unité systemd, site nginx
 Pile de middlewares, de l'extérieur vers l'intérieur (`main.go`) :
 
 ```
-SecurityHeaders ─▶ RememberLanguage ─┬─ GET /static/*  ─▶ http.FileServer (embed)
-                                     └─ /*  ─▶ ratelimit ─▶ csrfx ─▶ routes (internal/web)
+SecurityHeaders ─▶ RememberLanguage ─┬─ GET /static/*, /sw.js ─▶ http.FileServer (embed)
+                                     └─ /* ─▶ ratelimit ─▶ csrfx ─▶ LoadSession ─▶ routes
+                                                                    (authx)        (internal/web)
+                         page d'une famille : RequireAuth ─▶ protect ─▶ handler
 ```
 
 1. **`SecurityHeaders`** (`internal/web/middleware.go`) : CSP stricte
@@ -52,7 +57,14 @@ SecurityHeaders ─▶ RememberLanguage ─┬─ GET /static/*  ─▶ http.Fil
    si la connexion vient d'un proxy de `trusted_proxies` (SEC-03).
 5. **`csrfx`** : jeton par double soumission. Le cookie `csrf_token` est posé sur
    les GET et le champ `csrf_token` est exigé sur les POST ; sinon 403 (SEC-01).
-6. **Routes** (`App.Routes`, `internal/web/app.go`).
+6. **`LoadSession`** (`authx`) : lit le cookie `session`, charge la famille
+   connectée et fait glisser l'expiration de la session à chaque requête.
+7. **Routes** (`App.Routes`, `internal/web/app.go`). Les pages publiques
+   (`/login`, `/signup`, `/logout`, manifeste) sont servies telles quelles ; toutes
+   les autres passent par `protect` (`internal/web/auth.go`) : `RequireAuth`
+   redirige vers `/login?next=…`, puis la famille de la session est cherchée dans
+   `accounts.db`, sa visite notée, et **sa** base ouverte et posée dans le
+   contexte. Les handlers l'obtiennent par `storeOf(ctx)` (SEC-06).
 
 Le serveur a des délais d'en-tête, de lecture et d'écriture, et s'arrête proprement
 sur `SIGINT` / `SIGTERM` (15 s au plus).
@@ -133,6 +145,9 @@ Le générateur aléatoire est injecté (`Drawer.Rng`), ce qui rend les tests
 déterministes.
 
 ## Stockage (`internal/store`)
+
+Ce package gère **la base d'une famille** ; il ignore qu'il en existe d'autres
+(voir « Comptes et familles »).
 
 - **Connexion** : pragmas `foreign_keys`, `busy_timeout(5000)` et
   `journal_mode(WAL)` ajoutés au DSN, pour que chaque connexion du pool les
@@ -235,8 +250,9 @@ sur un envoi classique du formulaire, en y recopiant le bouton pressé.
   requête pour être traduit (nom, description, raccourcis Semaine et Courses). Ses
   couleurs reprennent les jetons clairs de `main.css` ; les `<meta name="theme-color">`
   du gabarit donnent aussi la variante sombre. Le lien porte
-  `crossorigin="use-credentials"`, sans quoi le navigateur le demanderait sans les
-  identifiants de l'authentification du reverse proxy.
+  `crossorigin="use-credentials"`, sans quoi le navigateur le demanderait sans
+  cookies, donc sans la langue choisie. Le manifeste est public : il ne contient
+  que le nom et les icônes.
 - **Icônes** dans `static/icons/`, tirées des SVG du logo par Inkscape :
   `icon-192/512.png` (coins transparents), `icon-maskable-192/512.png` et
   `apple-touch-icon.png` (fond plein, dessin dans la zone sûre), à partir de
@@ -253,6 +269,36 @@ sur un envoi classique du formulaire, en y recopiant le bouton pressé.
 CSS : nesting natif, modificateurs BEM écrits `&.bloc--modif` (le gabarit, ou le
 script, porte les deux classes), jetons de couleur sur `:root`, mode sombre par
 `prefers-color-scheme`, `prefers-reduced-motion` respecté (EI-03).
+
+## Comptes et familles (§3.5)
+
+- **Une base par famille.** `accounts.db` contient les tables `users` et `sessions`
+  d'`authx` (migrations de `authx/sqlstore`) et les tables `families` et `invites`
+  (`internal/accounts/migrations`, tracées dans le même `schema_migrations` sous le
+  préfixe `accounts/`). Chaque famille a sa base `families/<file>.db`, `<file>`
+  étant 32 caractères hexadécimaux aléatoires : `internal/store` est inchangé, et
+  aucune requête ne filtre par famille.
+- **`authx`** fournit le hachage (bcrypt), les sessions glissantes et la
+  connexion (`LoginGET`, `LoginPOST`). L'identifiant occupe la colonne `email`
+  d'`authx`, que `LoginPOST` met en minuscules. Le message d'échec d'`authx` est
+  remplacé par une clé traduite (`login.invalid`) dans `loginRenderer`.
+- **Session permanente** : `main.go` impose `SessionTTL` (400 jours) quelle que soit
+  `auth.session_ttl` ; `LoadSession` repousse l'échéance à chaque requête.
+- **Force brute** : `loginGuard` compte en mémoire les échecs par identifiant
+  (5 en 15 minutes) ; un redémarrage remet les compteurs à zéro, la limite par IP
+  restant en place.
+- **Registre** (`internal/families`) : `Acquire` ouvre la base à la demande (et
+  applique ses migrations), `release` la rend ; une base n'est fermée par
+  `CloseIdle` (toutes les 5 minutes, après 15 minutes sans usage) ni supprimée
+  par `Remove` tant qu'une requête la tient.
+- **Activité** : `protect` appelle `Accounts.Touch`, qui n'écrit qu'une fois par
+  heure au plus. `purge` compare `last_active_at` à `inactive_months`.
+- **Déconnexion** : `Clear-Site-Data: "cache", "storage"` et, côté script, vidage
+  du `Cache Storage` avant l'envoi des formulaires `[data-logout]`.
+- **Commandes** (`cli.go`) : `commandArgs` reprend les arguments laissés par
+  `appconf` après `-c`. `create-family -from` copie la base mono-foyer par
+  `VACUUM INTO` (source ouverte en lecture seule, WAL compris), puis l'ouverture
+  par le registre la migre.
 
 ## Configuration
 
@@ -276,10 +322,17 @@ go test -run '^TestMoveMeal$' ./internal/web/
 - `internal/store` : cycle de vie des éléments, unicité par sorte, assiettes et
   échange, migrations `001 → 002`, `003 → 004` et `004 → 005` sans perte, réglages,
   repas fixes, ingrédients, rayons et articles, liste de courses.
-- `internal/web` : la vraie pile (langue, CSRF, routes) derrière `httptest`, avec
-  un client qui garde ses cookies et ne suit pas les redirections. « Aujourd'hui »
-  y est figé au jeudi 8 octobre 2026. Les scénarios de recette TR-xx y sont
+- `internal/accounts` : création, unicité de l'identifiant, activité, mot de passe,
+  suppression, invitations (usage unique, expiration, saisie libre).
+- `internal/families` : isolement de deux familles, pas de fermeture ni de
+  suppression d'une base en cours d'usage.
+- `internal/web` : la vraie pile (langue, CSRF, session, routes) derrière
+  `httptest`, avec un client connecté à une famille, qui garde ses cookies et ne
+  suit pas les redirections. « Aujourd'hui » y est figé au jeudi 8 octobre 2026.
+  `auth_test.go` couvre connexion, force brute, inscription selon le mode,
+  isolement, Compte et suppression. Les scénarios de recette TR-xx y sont
   référencés.
+- `cli_test.go` : import d'une base mono-foyer, réinitialisation, invitation, purge.
 
 ## Construire et publier
 

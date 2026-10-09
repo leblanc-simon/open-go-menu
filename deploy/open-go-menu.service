@@ -12,9 +12,11 @@ After=network.target
 Type=simple
 ExecStart=/usr/local/bin/open-go-menu -c /etc/open-go-menu/config.yaml
 
-# Utilisateur éphémère ; la base vit dans /var/lib/open-go-menu (StateDirectory),
-# qui est aussi le répertoire courant.
+# Utilisateur éphémère, nommé pour être partagé avec open-go-menu-purge ; les
+# bases vivent dans /var/lib/open-go-menu/data (StateDirectory = répertoire
+# courant, families.data_dir relatif).
 DynamicUser=yes
+User=open-go-menu
 StateDirectory=open-go-menu
 StateDirectoryMode=0750
 WorkingDirectory=/var/lib/open-go-menu

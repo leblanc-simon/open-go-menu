@@ -18,13 +18,17 @@ Un repas est soit un **plat complet** (« Lasagnes »), soit un **repas composé
 d'un féculent, d'une viande ou d'un poisson et d'un légume (« Riz, saumon, haricots
 verts »), chacun tiré dans sa propre liste.
 
-Hors périmètre : comptes utilisateurs, partage multi-foyers, API publique. Les
-plats complets ont leurs ingrédients (EF-19) et l'application dresse la liste de
-courses d'une période (§3.4).
+Les plats complets ont leurs ingrédients (EF-19) et l'application dresse la liste
+de courses d'une période (§3.4).
 
-L'application est mono-foyer. Elle n'embarque **pas d'authentification** : en
-déploiement exposé, elle se place derrière un reverse proxy qui authentifie (basic
-auth, SSO…). C'est documenté dans le README.
+L'application est **multi-familles** (§3.5) : chaque famille a un identifiant et un
+mot de passe partagés par ses membres, et ses données dans **sa propre base**.
+Aucune donnée personnelle n'est demandée : ni e-mail, ni nom, donc pas de
+récupération de mot de passe hors de l'administrateur du serveur. On reste connecté
+jusqu'à « Se déconnecter » ; une famille sans visite pendant 12 mois est supprimée.
+
+Hors périmètre : plusieurs identifiants par famille, partage entre familles,
+récupération de mot de passe par e-mail, double authentification, API publique.
 
 ## 2. Vocabulaire
 
@@ -46,6 +50,8 @@ auth, SSO…). C'est documenté dans le README.
 | Ingrédient | Article d'une recette de plat complet, avec une quantité en texte libre (« 200 g »). |
 | Rayon | Rayon du magasin ; les rayons sont ordonnés comme le parcours dans le magasin. |
 | Liste de courses | Les articles à acheter pour les repas d'une période, plus les ajouts à la main. Une seule liste à la fois. |
+| Famille | Un compte : un identifiant, un mot de passe, et une base de données à elle seule. Toutes les données décrites ici appartiennent à une famille. |
+| Identifiant | Le login d'une famille, partagé par ses membres : 3 à 40 caractères `a-z 0-9 . _ -`, insensible à la casse. |
 
 ## 3. Exigences fonctionnelles
 
@@ -92,6 +98,18 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | EF-23 | On peut **ajouter à la main** un article à la liste (nom avec suggestions, quantité libre), puis le retirer. Aucun ajout n'est permanent ni récurrent. | I |
 | EF-24 | Chaque ligne montre l'article, et pour chaque besoin la quantité éventuelle, le plat dont il est l'ingrédient, le jour et le repas (ou « Ajouté à la main »). Une **case** met l'article dans le panier : la ligne passe en fin de liste, atténuée, sous « Dans le panier ». Un article sans rayon peut être rangé depuis la liste. Les plats complets planifiés sans ingrédients sont signalés en tête de liste. | I |
 
+### 3.5 Comptes et familles
+
+| Réf | Exigence | Prio |
+|---|---|---|
+| EF-25 | **Connexion** par identifiant et mot de passe (`/login`). Toutes les pages, sauf connexion, inscription, manifeste et ressources statiques, exigent une famille connectée ; sinon redirection vers `/login`, qui ramène ensuite à la page demandée. Un échec ne dit pas si l'identifiant existe. | O |
+| EF-26 | **Inscription** (`/signup`) selon le réglage `families.signup` : `open` (libre), `invite` (avec un code d'invitation à usage unique, défaut), `closed` (fermée : seul l'administrateur crée des familles). Identifiant, mot de passe (au moins 10 caractères) et confirmation ; la page prévient qu'un mot de passe oublié n'est pas récupérable et rappelle la suppression après inactivité. La famille créée est connectée aussitôt, sa base créée. | O |
+| EF-27 | **Connexion permanente** : la session glisse à chaque visite et dure 400 jours (plafond des navigateurs) ; elle ne prend fin que par « Se déconnecter » (cet appareil seulement) ou par la déconnexion de tous les appareils. La déconnexion efface aussi les pages gardées hors ligne (EI-06). | O |
+| EF-28 | Page **Compte** : identifiant et date de création, se déconnecter, changer le mot de passe (l'actuel est demandé ; les autres appareils sont déconnectés, celui-ci reste connecté), déconnecter tous les appareils. | O |
+| EF-29 | **Suppression de la famille** depuis le Compte, confirmée par le mot de passe et une case : identifiant, sessions et base sont supprimés définitivement. | I |
+| EF-30 | **Purge** : la commande `open-go-menu purge` supprime les familles sans aucune visite depuis `families.inactive_months` mois (12 par défaut), et les sessions expirées ; un timer systemd la lance chaque nuit. Une visite est toute page vue par la famille connectée, notée au plus une fois par heure. `-dry-run` liste sans supprimer. | I |
+| EF-31 | **Administration** en ligne de commande : `create-family [-from base.db] <identifiant>` (affiche le mot de passe généré ; `-from` importe la base d'une installation mono-foyer, sans la modifier), `reset-password <identifiant>` (nouveau mot de passe affiché, tous les appareils déconnectés), `invite [-days 30]` (code à usage unique), `families` (liste et dernières visites). | I |
+
 ### 3.3 Règles de tirage
 
 | Réf | Règle |
@@ -125,9 +143,9 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | Réf | Exigence |
 |---|---|
 | ENF-01 | Go 1.26+, **bibliothèque standard** pour le HTTP (`http.ServeMux`), `html/template`. Aucun framework web, CSS ou JS. |
-| ENF-02 | Socle **`leblanc.io/open-go-base`** : `appconf` (configuration, `--help`, `--version`), `logx`, `ratelimit`, `i18n` (`NewFS`), `csrfx`. Ne pas ré-implémenter ces briques. |
+| ENF-02 | Socle **`leblanc.io/open-go-base`** : `appconf` (configuration, `--help`, `--version`), `logx`, `ratelimit`, `i18n` (`NewFS`), `csrfx`, `authx` (mots de passe bcrypt, sessions glissantes, connexion, avec son stockage `authx/sqlstore`). Ne pas ré-implémenter ces briques. |
 | ENF-03 | Binaire **autonome** : gabarits, CSS/JS et traductions embarqués (`go:embed`). |
-| ENF-04 | Stockage **SQLite** via `modernc.org/sqlite` (pur Go, `CGO_ENABLED=0`). Migrations SQL embarquées, jouées au démarrage, idempotentes. |
+| ENF-04 | Stockage **SQLite** via `modernc.org/sqlite` (pur Go, `CGO_ENABLED=0`) : une base des comptes (`accounts.db`) et **une base par famille** (`families/<id>.db`, `<id>` aléatoire), sous `families.data_dir`. Aucune requête ne filtre par famille : l'isolement vient du fichier. Migrations SQL embarquées et idempotentes, jouées au démarrage pour les comptes et à l'ouverture de chaque famille. Les bases inutilisées depuis 15 minutes sont refermées. |
 | ENF-05 | **Internationalisation dès la v1** : aucune chaîne en dur dans les gabarits ou le code. Clés anglaises `écran.élément` (`home.generate`, `settings.add_dish`) ; segments transverses sous leurs propres racines (`weekday.*`, `month.*`, `season.*`, `meal.*`, `kind.*`, `validation.*`, `flash.*`, `date.*`). Langues : français (défaut) et anglais, catalogues alignés. Le JS reçoit ses libellés via des attributs `data-`. |
 | ENF-06 | Langue choisie par `?lang=` (mémorisée en cookie), sinon `Accept-Language`, sinon langue par défaut configurée (`i18n.default_language`, `fr` dans `config.yaml.dist` ; le défaut d'`appconf` est `en`). |
 | ENF-07 | CSS en **nesting natif**, sans préprocesseur. |
@@ -143,6 +161,9 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | SEC-03 | Limitation de débit par IP (`ratelimit`), IP réelle résolue uniquement via les proxys de confiance. |
 | SEC-04 | Requêtes SQL paramétrées exclusivement ; échappement HTML par `html/template`. |
 | SEC-05 | Validation serveur de toutes les entrées (bornes des poids, longueur des noms, dates, repas connus). |
+| SEC-06 | **Isolement des familles** : la famille d'une requête vient uniquement de sa session, jamais de l'URL ni d'un champ ; elle désigne la seule base ouverte pour la requête. Le nom d'un fichier de famille est aléatoire (32 caractères hexadécimaux), vérifié avant toute ouverture. |
+| SEC-07 | **Mots de passe** hachés par `authx` (bcrypt, coût `auth.bcrypt_cost`, pré-hachage SHA-256), au moins 10 caractères. Contre la force brute, en plus de la limite par IP : 5 échecs en 15 minutes sur un identifiant le bloquent jusqu'à la fin de la fenêtre (429). Le temps de réponse d'un identifiant inconnu est égalisé (`authx`). |
+| SEC-08 | **Session** : jeton aléatoire de 256 bits en base, cookie `HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS (`auth.cookie_secure`). Déconnexion côté serveur ; `Clear-Site-Data: "cache", "storage"` à la déconnexion et à la suppression, pour qu'une autre famille du même appareil ne voie pas les pages gardées hors ligne. Codes d'invitation conservés sous forme de SHA-256 seulement, à usage unique, expirant. |
 
 ## 7. Évolutions possibles
 
@@ -154,7 +175,10 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 
 ```
 main.go                      câblage, go:embed, middlewares, arrêt propre
-internal/config              Config = fragments appconf (Web, Logging, I18n, Database)
+cli.go                       commandes d'administration (EF-31, EF-30)
+internal/config              Config = fragments appconf (Web, Logging, I18n, Auth) + Families
+internal/accounts            base des comptes : familles, invitations (+ users, sessions d'authx)
+internal/families            registre des bases de familles : ouverture, fermeture, suppression
 internal/planner             logique pure : saisons, bornes de semaine, tirage pondéré
 internal/shopping            logique pure : regroupement de la liste de courses
 internal/store               SQLite : migrations, éléments, planning, réglages,
@@ -164,12 +188,21 @@ templates/  static/  locales/
 ```
 
 Pile de middlewares (extérieur → intérieur) : en-têtes de sécurité → langue →
-`/static/` hors limiteur | limiteur → CSRF → routeur.
+`/static/`, `/sw.js` hors limiteur | limiteur → CSRF → session (`authx.LoadSession`)
+→ routeur. Chaque page d'une famille passe par `RequireAuth` puis par l'ouverture
+de sa base (SEC-06).
 
 Routes :
 
 | Méthode | Chemin | Rôle |
 |---|---|---|
+| GET, POST | `/login` | Connexion (`email` = identifiant, `password`, `next`) — public |
+| GET, POST | `/signup` | Inscription (`login`, `password`, `password_confirm`, `invite`) — public |
+| POST | `/logout` | Déconnexion de cet appareil |
+| GET | `/account` | Compte de la famille |
+| POST | `/account/password` | Changement de mot de passe (`current`, `password`, `password_confirm`) |
+| POST | `/account/logout-all` | Déconnexion de tous les appareils |
+| POST | `/account/delete` | Suppression de la famille (`password`, `confirm=yes`) |
 | GET | `/` | Semaine (`?week=AAAA-MM-JJ` : n'importe quel jour de la semaine voulue) |
 | GET | `/manifest.webmanifest` | Manifeste de l'application installable, dans la langue de la requête (EI-06) |
 | GET | `/sw.js` | Service worker, servi à la racine pour couvrir tout le site (hors limiteur, `no-cache`) |
@@ -201,6 +234,18 @@ Routes :
 | POST | `/shopping/articles/{id}` | `action=tick&needs=…`, `untick`, `remove` (ajout à la main), `aisle&aisle=…` |
 
 ## 9. Modèle de données
+
+Base des comptes, `accounts.db` :
+
+```sql
+users       (id, email, password_hash, role, is_active, must_change_pwd, created_at,
+             last_login)                -- table d'authx ; email = identifiant de la famille
+sessions    (token, user_id → users.id, purpose, expires_at, created_at, user_agent, ip)
+families    (user_id PRIMARY KEY → users.id, file UNIQUE, created_at, last_active_at)
+invites     (code_hash PRIMARY KEY, created_at, expires_at, used_at)
+```
+
+Base de chaque famille, `families/<file>.db` :
 
 ```sql
 items       (id, kind, name, weight, weight_spring, weight_summer, weight_autumn,
@@ -255,3 +300,11 @@ rayons, quantités et tables de la liste de courses, sans perte.
 | TR-17 | Bœuf viande le lundi midi et ingrédient des lasagnes le mardi soir → une seule ligne « Bœuf », sous le rayon Boucherie, avec les deux repas et la quantité de la recette. |
 | TR-18 | Cocher « Bœuf », puis planifier du bœuf le vendredi → la ligne est de nouveau à acheter. |
 | TR-19 | Ajouter « Papier toilette » à la main, créer une nouvelle liste → il n'y est plus. |
+| TR-20 | Sans session, toute page de la famille redirige vers `/login` ; après connexion, on revient à la page demandée. |
+| TR-21 | Une famille B ne voit ni ne peut supprimer un élément de la famille A, même en connaissant son identifiant numérique. |
+| TR-22 | Six connexions ratées sur un identifiant → la sixième, même avec le bon mot de passe, répond 429 ; elle passe 15 minutes plus tard. |
+| TR-23 | Inscription en mode `invite` : sans code, ou avec un code déjà utilisé ou expiré, refusée ; avec un code valide (saisi en minuscules), la famille est créée et connectée. En mode `closed`, `/signup` répond 404. |
+| TR-24 | Changer le mot de passe déconnecte l'autre appareil connecté, pas celui-ci ; « Déconnecter tous les appareils » les déconnecte tous. |
+| TR-25 | Supprimer la famille (mot de passe et case cochée) efface sa base ; l'identifiant ne se connecte plus et peut être repris. |
+| TR-26 | `purge` sur une famille vue il y a 13 mois et une autre vue hier : seule la première est supprimée ; `-dry-run` ne supprime rien. |
+| TR-27 | `create-family -from` sur la base d'une installation mono-foyer : la famille retrouve ses éléments ; la base d'origine n'est pas modifiée. |

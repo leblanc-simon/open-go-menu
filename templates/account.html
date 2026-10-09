@@ -1,0 +1,124 @@
+{{ define "content" }}
+{{ if eq .View "login" }}
+<section class="auth" aria-labelledby="auth-title">
+  <h1 class="page__title" id="auth-title">{{ T "login.title" }}</h1>
+  {{ with .Error }}<p class="form-error" id="login-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="auth__form" method="post" action="/login">
+    {{ csrfField }}
+    <input type="hidden" name="next" value="{{ .Next }}">
+    <div class="auth__field">
+      <label for="login">{{ T "login.login" }}</label>
+      <input id="login" name="email" value="{{ .Login }}" required autocomplete="username" autocapitalize="none" spellcheck="false"
+        {{ if .Error }}aria-invalid="true" aria-describedby="login-error"{{ else }}autofocus{{ end }}>
+    </div>
+    <div class="auth__field">
+      <label for="password">{{ T "login.password" }}</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password" {{ if .Error }}autofocus{{ end }}>
+    </div>
+    <button class="button button--primary button--large" type="submit">{{ T "login.submit" }}</button>
+  </form>
+  <p class="auth__hint">{{ T "login.stays" }}</p>
+  {{ if ne .Signup "closed" }}<p class="auth__switch">{{ T "login.no_account" }} <a href="/signup">{{ T "login.signup_link" }}</a></p>{{ end }}
+</section>
+
+{{ else if eq .View "signup" }}
+<section class="auth" aria-labelledby="auth-title">
+  <h1 class="page__title" id="auth-title">{{ T "signup.title" }}</h1>
+  {{ if eq .Signup "closed" }}
+  <p class="panel__hint">{{ T "signup.closed" }}</p>
+  <p class="auth__switch"><a href="/login">{{ T "signup.login_link" }}</a></p>
+  {{ else }}
+  <div class="auth__notice" role="note">
+    <p>{{ T "signup.no_recovery" }}</p>
+    <p>{{ Tn "signup.purge" .Months }}</p>
+  </div>
+  {{ with .Error }}<p class="form-error" id="signup-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="auth__form" method="post" action="/signup">
+    {{ csrfField }}
+    {{ if eq .Signup "invite" }}
+    <div class="auth__field">
+      <label for="invite">{{ T "signup.invite" }}</label>
+      <input id="invite" name="invite" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EFGH-JKLM">
+    </div>
+    {{ end }}
+    <div class="auth__field">
+      <label for="login">{{ T "login.login" }}</label>
+      <input id="login" name="login" value="{{ .Login }}" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]{2,39}"
+        autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="login-hint">
+      <p class="auth__hint" id="login-hint">{{ T "signup.login_hint" }}</p>
+    </div>
+    <div class="auth__field">
+      <label for="password">{{ T "login.password" }}</label>
+      <input id="password" name="password" type="password" required minlength="10" autocomplete="new-password" aria-describedby="password-hint">
+      <p class="auth__hint" id="password-hint">{{ T "signup.password_hint" }}</p>
+    </div>
+    <div class="auth__field">
+      <label for="password_confirm">{{ T "signup.password_confirm" }}</label>
+      <input id="password_confirm" name="password_confirm" type="password" required minlength="10" autocomplete="new-password">
+    </div>
+    <button class="button button--primary button--large" type="submit">{{ T "signup.submit" }}</button>
+  </form>
+  <p class="auth__switch">{{ T "signup.has_account" }} <a href="/login">{{ T "signup.login_link" }}</a></p>
+  {{ end }}
+</section>
+
+{{ else }}
+<h1 class="page__title">{{ T "account.title" }}</h1>
+
+<section class="panel" aria-labelledby="who-title">
+  <h2 class="panel__title" id="who-title">{{ .Login }}</h2>
+  <p class="panel__hint">{{ T "account.since" . }} {{ Tn "signup.purge" .Months }}</p>
+  <form method="post" action="/logout" data-logout>
+    {{ csrfField }}
+    <button class="button button--primary" type="submit">{{ T "account.logout" }}</button>
+  </form>
+</section>
+
+<section class="panel" id="password" aria-labelledby="password-title">
+  <h2 class="panel__title" id="password-title">{{ T "account.password_title" }}</h2>
+  <p class="panel__hint">{{ T "account.password_hint" }}</p>
+  {{ with .PasswordErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="auth__form" method="post" action="/account/password">
+    {{ csrfField }}
+    <input type="hidden" name="username" value="{{ .Login }}" autocomplete="username">
+    <div class="auth__field">
+      <label for="current">{{ T "account.current" }}</label>
+      <input id="current" name="current" type="password" required autocomplete="current-password">
+    </div>
+    <div class="auth__field">
+      <label for="new-password">{{ T "account.new" }}</label>
+      <input id="new-password" name="password" type="password" required minlength="10" autocomplete="new-password">
+    </div>
+    <div class="auth__field">
+      <label for="new-password-confirm">{{ T "signup.password_confirm" }}</label>
+      <input id="new-password-confirm" name="password_confirm" type="password" required minlength="10" autocomplete="new-password">
+    </div>
+    <button class="button" type="submit">{{ T "account.password_submit" }}</button>
+  </form>
+</section>
+
+<section class="panel" aria-labelledby="devices-title">
+  <h2 class="panel__title" id="devices-title">{{ T "account.devices_title" }}</h2>
+  <p class="panel__hint">{{ T "account.devices_hint" }}</p>
+  <form method="post" action="/account/logout-all" data-logout>
+    {{ csrfField }}
+    <button class="button" type="submit">{{ T "account.logout_all" }}</button>
+  </form>
+</section>
+
+<section class="panel panel--danger" id="delete" aria-labelledby="delete-title">
+  <h2 class="panel__title" id="delete-title">{{ T "account.delete_title" }}</h2>
+  <p class="panel__hint">{{ T "account.delete_hint" }}</p>
+  {{ with .DeleteErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="auth__form" method="post" action="/account/delete" data-logout>
+    {{ csrfField }}
+    <div class="auth__field">
+      <label for="delete-password">{{ T "login.password" }}</label>
+      <input id="delete-password" name="password" type="password" required autocomplete="current-password">
+    </div>
+    <label class="check"><input type="checkbox" name="confirm" value="yes" required> {{ T "account.delete_confirm" }}</label>
+    <button class="button button--danger" type="submit">{{ T "account.delete_submit" }}</button>
+  </form>
+</section>
+{{ end }}
+{{ end }}

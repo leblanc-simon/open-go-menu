@@ -35,8 +35,16 @@ cp config.yaml.dist config.yaml
 make run            # ou : go run . -c config.yaml
 ```
 
-Puis ouvrir <http://127.0.0.1:8080>. La base SQLite (`open-go-menu.db`) est créée et
-migrée au démarrage. Le binaire embarque gabarits, CSS/JS et traductions.
+Puis créer une famille et ouvrir <http://127.0.0.1:8080> :
+
+```bash
+go run . -c config.yaml create-family dupont      # affiche son mot de passe
+go run . -c config.yaml invite                    # ou : un code pour /signup
+```
+
+Les bases SQLite (`data/accounts.db`, puis une par famille dans `data/families/`)
+sont créées et migrées au démarrage. Le binaire embarque gabarits, CSS/JS et
+traductions.
 
 ```bash
 make debug          # build/open-go-menu
@@ -49,18 +57,23 @@ open-go-menu --help    # options et variables d'environnement OGM_*
 
 Fichier YAML (`-c`, défaut `config.yaml`) ou variables d'environnement préfixées
 `OGM_` : `OGM_HOST`, `OGM_PORT`, `OGM_RATE_LIMIT`, `OGM_TRUSTED_PROXIES`,
-`OGM_LOG_LEVEL`, `OGM_LOG_FORMAT`, `OGM_I18N_DEFAULT_LANGUAGE`, `OGM_DB_DRIVER`
-(`sqlite` uniquement), `OGM_DB_DSN`.
+`OGM_LOG_LEVEL`, `OGM_LOG_FORMAT`, `OGM_I18N_DEFAULT_LANGUAGE`, `OGM_DATA_DIR`,
+`OGM_SIGNUP` (`open`, `invite`, `closed`), `OGM_INACTIVE_MONTHS`, `OGM_AUTH_*`.
 
 « Aujourd'hui » suit le fuseau du processus : positionner `TZ` si besoin.
 
-## Sécurité
+## Familles et sécurité
 
-L'application est mono-foyer et **n'a pas d'authentification**. Exposée au-delà
-du réseau local, elle doit se placer derrière un reverse proxy qui authentifie
-(basic auth, SSO…) : voir [docs/deploiement.md](docs/deploiement.md). Elle
-protège ses formulaires contre le CSRF, limite le débit par IP et envoie une CSP
-stricte.
+L'application est **multi-familles** : chaque famille a un identifiant et un mot
+de passe partagés par ses membres, et ses données dans sa propre base SQLite.
+Aucune donnée personnelle n'est demandée, pas même un e-mail : un mot de passe
+oublié se réinitialise par `open-go-menu reset-password <identifiant>`. On reste
+connecté jusqu'à « Se déconnecter ». Une famille sans visite pendant 12 mois est
+supprimée par `open-go-menu purge` (timer systemd fourni).
+
+L'inscription est ouverte, sur invitation (défaut) ou fermée. Mots de passe en
+bcrypt, limite de tentatives par identifiant, protection CSRF, limite de débit par
+IP, CSP stricte. Voir [docs/deploiement.md](docs/deploiement.md).
 
 ## Langues
 

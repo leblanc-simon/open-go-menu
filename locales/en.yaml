@@ -9,6 +9,7 @@ nav:
   week: Week
   shopping: Shopping
   settings: Settings
+  account: Account
   language: Language
 
 language:
@@ -168,6 +169,53 @@ settings:
     available, that one is drawn.
   meals_save: Save
 
+login:
+  title: Log in
+  login: Login
+  password: Password
+  submit: Log in
+  stays: You stay logged in on this device until you log out.
+  no_account: No account yet?
+  signup_link: Create a family
+  invalid: Wrong login or password.
+  too_many: "Too many attempts for this login. Try again in {{.Minutes}} minutes."
+
+signup:
+  title: Create a family
+  closed: Signing up is closed on this server.
+  login_link: Log in
+  has_account: Already have an account?
+  no_recovery: >-
+    No e-mail address is asked for: a forgotten password cannot be recovered.
+    Write it down, or ask the administrator of the server to reset it.
+  purge:
+    one: "A family without any visit for {{.Count}} month is deleted with its data."
+    other: "A family without any visit for {{.Count}} months is deleted with its data."
+  invite: Invitation code
+  login_hint: "3 to 40 characters: unaccented letters, digits, dot, dash, underscore. Shared by the whole family."
+  password_hint: At least 10 characters.
+  password_confirm: Confirm the password
+  submit: Create the family
+
+account:
+  title: Account
+  since: "Family created on {{.Since}}."
+  logout: Log out
+  password_title: Change the password
+  password_hint: The other devices will be logged out; this one stays logged in.
+  current: Current password
+  new: New password
+  password_submit: Change the password
+  devices_title: Devices
+  devices_hint: Logs out every device of the family, this one included.
+  logout_all: Log out every device
+  delete_title: Delete the family
+  delete_hint: >-
+    Deletes the login, the lists, the meals and the shopping list. There is no
+    way back.
+  delete_confirm: I understand that everything will be deleted for good.
+  delete_submit: Delete the family
+
 shopping:
   title: Shopping
   new_title: New shopping list
@@ -263,6 +311,14 @@ validation:
   dates_invalid: Enter two valid dates.
   dates_order: The end date comes before the start date.
   dates_too_long: "A list covers {{.Max}} days at most."
+  login_format: "A login has 3 to 40 characters: unaccented letters, digits, dot, dash, underscore."
+  login_taken: This login is already taken.
+  invite_invalid: This invitation code is unknown, used or expired.
+  password_short: "A password has at least {{.Min}} characters."
+  password_long: "The password exceeds {{.Max}} characters."
+  password_mismatch: The two passwords differ.
+  password_wrong: Wrong password.
+  delete_confirm: Tick the box to confirm the deletion.
   share_range: Enter a whole number from 0 to 100.
 
 flash:
@@ -297,6 +353,11 @@ flash:
   shopping_started: Shopping list created.
   extra_added: Added to the list.
   extra_removed: Removed from the list.
+  logged_out: You are logged out.
+  logged_out_everywhere: Every device is logged out.
+  family_created: Family created. Start by filling your lists.
+  password_changed: Password changed. The other devices are logged out.
+  family_deleted: The family and all its data are deleted.
 
 error:
   title: Error

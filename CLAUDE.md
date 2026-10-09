@@ -49,8 +49,16 @@ de tirage, EI interface, ENF non fonctionnelles, SEC sécurité, TR recette) et 
   redirection 303 → GET, message flash = **clé** `flash.*` en cookie (jamais de texte libre).
   Les erreurs de saisie ré-affichent le formulaire en 422 avec les valeurs saisies.
 
-Socle `leblanc.io/open-go-base` (appconf, logx, ratelimit, i18n via `NewFS`, csrfx) : ne pas
-ré-implémenter ces briques. Préfixe d'env `OGM_`.
+- **Multi-familles** : `internal/accounts` (base `accounts.db` : users/sessions d'`authx`,
+  `families`, `invites`), `internal/families` (une base SQLite par famille, ouverte à la
+  demande, jamais fermée ni supprimée pendant qu'une requête la tient). `web.protect` résout la
+  famille **depuis la session uniquement** et pose sa base dans le contexte : les handlers
+  l'obtiennent par `storeOf(ctx)`, `internal/store` ignore les autres familles. Session
+  glissante de 400 jours (on reste connecté). `cli.go` : `create-family [-from]`,
+  `reset-password`, `invite`, `families`, `purge`.
+
+Socle `leblanc.io/open-go-base` (appconf, logx, ratelimit, i18n via `NewFS`, csrfx, authx) : ne
+pas ré-implémenter ces briques. Préfixe d'env `OGM_`.
 
 ## Conventions
 

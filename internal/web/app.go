@@ -10,29 +10,46 @@ import (
 	"net/url"
 	"time"
 
+	"leblanc.io/open-go-base/authx"
 	"leblanc.io/open-go-base/csrfx"
 	"leblanc.io/open-go-base/i18n"
 
-	"leblanc.io/open-go-menu/internal/store"
+	"leblanc.io/open-go-menu/internal/accounts"
+	"leblanc.io/open-go-menu/internal/families"
 )
 
 // App holds the dependencies of the handlers.
 type App struct {
-	Store  *store.Store
-	I18n   *i18n.Bundle
-	CSRF   *csrfx.Protector
-	Logger *slog.Logger
+	Accounts *accounts.Store
+	Families *families.Registry
+	Auth     *authx.Manager
+	I18n     *i18n.Bundle
+	CSRF     *csrfx.Protector
+	Logger   *slog.Logger
 	// Now returns the current time; its location decides what "today" is.
 	Now func() time.Time
 
+	// Options holds the account settings.
+	Options Options
+
 	pages map[string]*template.Template
+	login *authx.Handlers
+	guard *loginGuard
+}
+
+// Options are the account settings of the application.
+type Options struct {
+	Signup         string // config.SignupOpen, SignupInvite or SignupClosed
+	InactiveMonths int
+	BcryptCost     int
 }
 
 // pageNames lists the templates rendered inside the layout.
-var pageNames = []string{"home", "settings", "shopping", "error"}
+var pageNames = []string{"home", "settings", "shopping", "account", "error"}
 
 // New parses the templates of templateFS and returns a ready App.
-func New(templateFS fs.FS, st *store.Store, bundle *i18n.Bundle, csrf *csrfx.Protector, logger *slog.Logger) (*App, error) {
+func New(templateFS fs.FS, accts *accounts.Store, fams *families.Registry, auth *authx.Manager, opts Options,
+	bundle *i18n.Bundle, csrf *csrfx.Protector, logger *slog.Logger) (*App, error) {
 	// Request-bound helpers are replaced on a clone at render time; these
 	// stubs only let the templates parse.
 	stubs := template.FuncMap{
@@ -41,8 +58,10 @@ func New(templateFS fs.FS, st *store.Store, bundle *i18n.Bundle, csrf *csrfx.Pro
 		"csrfField": func() template.HTML { return "" },
 		"csrfToken": func() string { return "" },
 	}
-	a := &App{Store: st, I18n: bundle, CSRF: csrf, Logger: logger, Now: time.Now,
-		pages: make(map[string]*template.Template, len(pageNames))}
+	a := &App{Accounts: accts, Families: fams, Auth: auth, Options: opts,
+		I18n: bundle, CSRF: csrf, Logger: logger, Now: time.Now,
+		pages: make(map[string]*template.Template, len(pageNames)), guard: newLoginGuard()}
+	a.login = authx.NewHandlers(auth, loginRenderer{a})
 	for _, name := range pageNames {
 		t, err := template.New(name).Funcs(stubs).ParseFS(templateFS, "layout.html", name+".html")
 		if err != nil {
@@ -53,42 +72,66 @@ func New(templateFS fs.FS, st *store.Store, bundle *i18n.Bundle, csrf *csrfx.Pro
 	return a, nil
 }
 
+// Handler returns the routes of the application, behind the loading of the
+// session: every page but the public ones requires a family logged in.
+func (a *App) Handler() http.Handler {
+	mux := http.NewServeMux()
+	a.Routes(mux)
+	return a.Auth.LoadSession(mux)
+}
+
 // Routes registers the handlers on mux.
 func (a *App) Routes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /{$}", a.home)
+	// Public pages.
+	mux.HandleFunc("GET /login", a.login.LoginGET)
+	mux.HandleFunc("POST /login", a.loginPOST)
+	mux.HandleFunc("GET /signup", a.signupPage)
+	mux.HandleFunc("POST /signup", a.signup)
+	mux.HandleFunc("POST /logout", a.logout)
 	mux.HandleFunc("GET /manifest.webmanifest", a.manifest)
-	mux.HandleFunc("POST /week-start", a.setWeekStart)
-	mux.HandleFunc("POST /plan/generate", a.generate)
-	mux.HandleFunc("POST /plan/{day}/{meal}", a.editSlot)
-	mux.HandleFunc("GET /settings", a.settings)
-	mux.HandleFunc("GET /settings/meals", a.mealsSettings)
-	mux.HandleFunc("POST /settings/meals", a.saveMeals)
-	mux.HandleFunc("GET /settings/meals/{weekday}/{meal}", a.fixedMeal)
-	mux.HandleFunc("POST /settings/meals/{weekday}/{meal}", a.saveFixedMeal)
-	mux.HandleFunc("GET /settings/{list}", a.settingsList)
-	mux.HandleFunc("POST /settings/{list}", a.addItem)
-	mux.HandleFunc("POST /settings/{list}/save", a.saveItems)
-	mux.HandleFunc("POST /settings/items/{id}/delete", a.deleteItem)
-	mux.HandleFunc("GET /settings/items/{id}", a.dishIngredients)
-	mux.HandleFunc("POST /settings/items/{id}/ingredients", a.addIngredient)
-	mux.HandleFunc("POST /settings/items/{id}/ingredients/save", a.saveQuantities)
-	mux.HandleFunc("POST /settings/items/{id}/ingredients/{article}/delete", a.removeIngredient)
-	mux.HandleFunc("GET /settings/articles", a.articlesSettings)
-	mux.HandleFunc("POST /settings/articles", a.addArticle)
-	mux.HandleFunc("POST /settings/articles/save", a.saveArticles)
-	mux.HandleFunc("POST /settings/articles/{id}/delete", a.deleteArticle)
-	mux.HandleFunc("GET /settings/aisles", a.aislesSettings)
-	mux.HandleFunc("POST /settings/aisles", a.addAisle)
-	mux.HandleFunc("POST /settings/aisles/save", a.saveAisles)
-	mux.HandleFunc("POST /settings/aisles/order", a.orderAisles)
-	mux.HandleFunc("POST /settings/aisles/{id}/move", a.moveAisle)
-	mux.HandleFunc("POST /settings/aisles/{id}/delete", a.deleteAisle)
-	mux.HandleFunc("GET /shopping", a.shopping)
-	mux.HandleFunc("GET /shopping/new", a.newShopping)
-	mux.HandleFunc("POST /shopping", a.startShopping)
-	mux.HandleFunc("POST /shopping/extras", a.addExtra)
-	mux.HandleFunc("POST /shopping/articles/{id}", a.shoppingLine)
 	mux.HandleFunc("/", a.notFound)
+
+	// The pages of a family.
+	for pattern, h := range map[string]http.HandlerFunc{
+		"GET /{$}":                                               a.home,
+		"POST /week-start":                                       a.setWeekStart,
+		"POST /plan/generate":                                    a.generate,
+		"POST /plan/{day}/{meal}":                                a.editSlot,
+		"GET /settings":                                          a.settings,
+		"GET /settings/meals":                                    a.mealsSettings,
+		"POST /settings/meals":                                   a.saveMeals,
+		"GET /settings/meals/{weekday}/{meal}":                   a.fixedMeal,
+		"POST /settings/meals/{weekday}/{meal}":                  a.saveFixedMeal,
+		"GET /settings/{list}":                                   a.settingsList,
+		"POST /settings/{list}":                                  a.addItem,
+		"POST /settings/{list}/save":                             a.saveItems,
+		"POST /settings/items/{id}/delete":                       a.deleteItem,
+		"GET /settings/items/{id}":                               a.dishIngredients,
+		"POST /settings/items/{id}/ingredients":                  a.addIngredient,
+		"POST /settings/items/{id}/ingredients/save":             a.saveQuantities,
+		"POST /settings/items/{id}/ingredients/{article}/delete": a.removeIngredient,
+		"GET /settings/articles":                                 a.articlesSettings,
+		"POST /settings/articles":                                a.addArticle,
+		"POST /settings/articles/save":                           a.saveArticles,
+		"POST /settings/articles/{id}/delete":                    a.deleteArticle,
+		"GET /settings/aisles":                                   a.aislesSettings,
+		"POST /settings/aisles":                                  a.addAisle,
+		"POST /settings/aisles/save":                             a.saveAisles,
+		"POST /settings/aisles/order":                            a.orderAisles,
+		"POST /settings/aisles/{id}/move":                        a.moveAisle,
+		"POST /settings/aisles/{id}/delete":                      a.deleteAisle,
+		"GET /shopping":                                          a.shopping,
+		"GET /shopping/new":                                      a.newShopping,
+		"POST /shopping":                                         a.startShopping,
+		"POST /shopping/extras":                                  a.addExtra,
+		"POST /shopping/articles/{id}":                           a.shoppingLine,
+		"GET /account":                                           a.account,
+		"POST /account/password":                                 a.changePassword,
+		"POST /account/logout-all":                               a.logoutEverywhere,
+		"POST /account/delete":                                   a.deleteFamily,
+	} {
+		mux.Handle(pattern, a.protect(h))
+	}
 }
 
 // page carries what the layout needs on every page.
@@ -96,6 +139,7 @@ type page struct {
 	Lang      string
 	Title     string
 	Nav       string
+	Family    string // the login of the family, "" on the public pages
 	Flash     string
 	LangLinks []langLink
 }
@@ -113,6 +157,9 @@ func (a *App) newPage(w http.ResponseWriter, r *http.Request, loc *i18n.Localize
 		Lang:  loc.Lang().String(),
 		Title: loc.T(titleKey),
 		Nav:   nav,
+	}
+	if f, ok := r.Context().Value(ctxFamily).(accounts.Family); ok {
+		p.Family = f.Login
 	}
 	if key := popFlash(w, r); key != "" {
 		p.Flash = loc.T(key)

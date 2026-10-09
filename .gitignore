@@ -3,6 +3,7 @@
 
 # Local config and data
 /config.yaml
+/data/
 *.db
 *.db-shm
 *.db-wal

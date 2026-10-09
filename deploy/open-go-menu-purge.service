@@ -1,0 +1,33 @@
+# OpenGoMenu — purge des familles inactives et des sessions expirées (EF-30).
+# Déclenchée chaque jour par open-go-menu-purge.timer. Voir docs/deploiement.md.
+
+[Unit]
+Description=OpenGoMenu, purge des familles inactives
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/open-go-menu -c /etc/open-go-menu/config.yaml purge
+
+# Même utilisateur dynamique et même répertoire que le service.
+DynamicUser=yes
+User=open-go-menu
+StateDirectory=open-go-menu
+StateDirectoryMode=0750
+WorkingDirectory=/var/lib/open-go-menu
+UMask=0077
+
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

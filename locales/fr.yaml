@@ -9,6 +9,7 @@ nav:
   week: Semaine
   shopping: Courses
   settings: Paramètres
+  account: Compte
   language: Langue
 
 language:
@@ -168,6 +169,54 @@ settings:
     formes a des éléments disponibles, c'est elle qui est tirée.
   meals_save: Enregistrer
 
+login:
+  title: Connexion
+  login: Identifiant
+  password: Mot de passe
+  submit: Se connecter
+  stays: Vous restez connecté sur cet appareil jusqu'à ce que vous vous déconnectiez.
+  no_account: Pas encore de compte ?
+  signup_link: Créer une famille
+  invalid: Identifiant ou mot de passe incorrect.
+  too_many: "Trop de tentatives pour cet identifiant. Réessayez dans {{.Minutes}} minutes."
+
+signup:
+  title: Créer une famille
+  closed: Les inscriptions sont fermées sur ce serveur.
+  login_link: Se connecter
+  has_account: Déjà un compte ?
+  no_recovery: >-
+    Aucune adresse e-mail n'est demandée : un mot de passe oublié ne peut pas
+    être récupéré. Notez-le, ou demandez à l'administrateur du serveur de le
+    réinitialiser.
+  purge:
+    one: "Une famille sans aucune visite pendant {{.Count}} mois est supprimée avec ses données."
+    other: "Une famille sans aucune visite pendant {{.Count}} mois est supprimée avec ses données."
+  invite: Code d'invitation
+  login_hint: "De 3 à 40 caractères : lettres sans accent, chiffres, point, tiret, tiret bas. Partagé par toute la famille."
+  password_hint: Au moins 10 caractères.
+  password_confirm: Confirmer le mot de passe
+  submit: Créer la famille
+
+account:
+  title: Compte
+  since: "Famille créée le {{.Since}}."
+  logout: Se déconnecter
+  password_title: Changer le mot de passe
+  password_hint: Les autres appareils seront déconnectés ; celui-ci reste connecté.
+  current: Mot de passe actuel
+  new: Nouveau mot de passe
+  password_submit: Changer le mot de passe
+  devices_title: Appareils
+  devices_hint: Déconnecte tous les appareils de la famille, y compris celui-ci.
+  logout_all: Déconnecter tous les appareils
+  delete_title: Supprimer la famille
+  delete_hint: >-
+    Supprime l'identifiant, les listes, les menus et la liste de courses. C'est
+    définitif.
+  delete_confirm: Je comprends que tout sera supprimé définitivement.
+  delete_submit: Supprimer la famille
+
 shopping:
   title: Courses
   new_title: Nouvelle liste de courses
@@ -263,6 +312,14 @@ validation:
   dates_invalid: Saisissez deux dates valides.
   dates_order: La date de fin précède la date de début.
   dates_too_long: "La liste couvre au plus {{.Max}} jours."
+  login_format: "L'identifiant compte de 3 à 40 caractères : lettres sans accent, chiffres, point, tiret, tiret bas."
+  login_taken: Cet identifiant est déjà pris.
+  invite_invalid: Ce code d'invitation est inconnu, déjà utilisé ou expiré.
+  password_short: "Le mot de passe compte au moins {{.Min}} caractères."
+  password_long: "Le mot de passe dépasse {{.Max}} caractères."
+  password_mismatch: Les deux mots de passe diffèrent.
+  password_wrong: Mot de passe incorrect.
+  delete_confirm: Cochez la case pour confirmer la suppression.
   share_range: Saisissez un nombre entier de 0 à 100.
 
 flash:
@@ -297,6 +354,11 @@ flash:
   shopping_started: Liste de courses créée.
   extra_added: Ajouté à la liste.
   extra_removed: Retiré de la liste.
+  logged_out: Vous êtes déconnecté.
+  logged_out_everywhere: Tous les appareils sont déconnectés.
+  family_created: Famille créée. Commencez par remplir vos listes.
+  password_changed: Mot de passe changé. Les autres appareils sont déconnectés.
+  family_deleted: La famille et toutes ses données sont supprimées.
 
 error:
   title: Erreur

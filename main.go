@@ -9,18 +9,21 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
 
 	"leblanc.io/open-go-base/appconf"
+	"leblanc.io/open-go-base/authx"
 	"leblanc.io/open-go-base/csrfx"
 	"leblanc.io/open-go-base/i18n"
 	"leblanc.io/open-go-base/logx"
 	"leblanc.io/open-go-base/ratelimit"
 
+	"leblanc.io/open-go-menu/internal/accounts"
 	"leblanc.io/open-go-menu/internal/config"
-	"leblanc.io/open-go-menu/internal/store"
+	"leblanc.io/open-go-menu/internal/families"
 	"leblanc.io/open-go-menu/internal/web"
 )
 
@@ -41,29 +44,57 @@ var localeFiles embed.FS
 func main() {
 	var cfg config.Config
 	appconf.MustLoad(&cfg, appconf.Options{Name: appName, Version: version})
-
 	logger := logx.New(cfg.Log)
-	if err := run(cfg); err != nil {
+
+	switch cfg.Families.Signup {
+	case config.SignupOpen, config.SignupInvite, config.SignupClosed:
+	default:
+		fmt.Fprintf(os.Stderr, "%s: families.signup %q: open, invite or closed\n", appName, cfg.Families.Signup)
+		os.Exit(2)
+	}
+
+	args := commandArgs(os.Args[1:])
+	var err error
+	if len(args) == 0 || args[0] == "serve" {
+		err = run(cfg)
+	} else {
+		err = command(cfg, args, os.Stdout)
+	}
+	if err != nil {
 		logger.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
+// openData opens the accounts database and the registry of the families,
+// under the data directory.
+func openData(cfg config.Config) (*accounts.Store, *families.Registry, error) {
+	dir := cfg.Families.DataDir
+	fams, err := families.New(filepath.Join(dir, "families"))
+	if err != nil {
+		return nil, nil, err
+	}
+	accts, err := accounts.Open(context.Background(), filepath.Join(dir, "accounts.db"))
+	if err != nil {
+		fams.Close()
+		return nil, nil, err
+	}
+	return accts, fams, nil
+}
+
 func run(cfg config.Config) error {
 	logger := logx.New(cfg.Log)
 
-	if cfg.DB.Dialect() != appconf.DialectSQLite {
-		return fmt.Errorf("database driver %q: only sqlite is supported", cfg.DB.Driver)
-	}
-	dsn := cfg.DB.DSN
-	if dsn == "" {
-		dsn = config.DefaultDSN
-	}
-	st, err := store.Open(context.Background(), dsn)
+	accts, fams, err := openData(cfg)
 	if err != nil {
 		return err
 	}
-	defer st.Close()
+	defer accts.Close()
+	defer fams.Close()
+	// The session slides at every visit and lasts as long as browsers keep a
+	// cookie: a family stays logged in until it logs out (EF-27).
+	cfg.Auth.SessionTTL = web.SessionTTL
+	auth := authx.New(cfg.Auth, accts.Users, accts.Sessions)
 
 	// Locales are embedded so that the binary is self-contained.
 	bundle, err := i18n.NewFS(localeFiles, "locales", cfg.I18n.DefaultLanguage)
@@ -75,8 +106,9 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
-	csrf := csrfx.New()
-	app, err := web.New(tmplFS, st, bundle, csrf, logger)
+	csrf := csrfx.New(csrfx.WithSecure(cfg.Auth.CookieSecure))
+	opts := web.Options{Signup: cfg.Families.Signup, InactiveMonths: cfg.Families.InactiveMonths, BcryptCost: cfg.Auth.BcryptCost}
+	app, err := web.New(tmplFS, accts, fams, auth, opts, bundle, csrf, logger)
 	if err != nil {
 		return fmt.Errorf("templates: %w", err)
 	}
@@ -86,9 +118,6 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return fmt.Errorf("rate limiter: %w", err)
 	}
-
-	appMux := http.NewServeMux()
-	app.Routes(appMux)
 
 	// Static assets bypass the limiter: one page load fetches several.
 	staticSub, err := fs.Sub(staticFiles, "static")
@@ -103,7 +132,7 @@ func run(cfg config.Config) error {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, staticSub, "sw.js")
 	})
-	mux.Handle("/", limiter.Middleware(csrf.Middleware(appMux)))
+	mux.Handle("/", limiter.Middleware(csrf.Middleware(app.Handler())))
 
 	addr := cfg.Web.Host + ":" + strconv.Itoa(cfg.Web.Port)
 	srv := &http.Server{
@@ -117,6 +146,20 @@ func run(cfg config.Config) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// The databases of the families nobody uses are closed after a while.
+	go func() {
+		tick := time.NewTicker(5 * time.Minute)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				fams.CloseIdle(15 * time.Minute)
+			}
+		}
+	}()
 
 	errc := make(chan error, 1)
 	go func() {
