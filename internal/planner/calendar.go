@@ -70,6 +70,53 @@ func ParseMeal(s string) (Meal, bool) {
 	return "", false
 }
 
+// Weekly is a meal of the week whatever its date: "Wednesday lunch".
+type Weekly struct {
+	Weekday time.Weekday
+	Meal    Meal
+}
+
+// Weekly returns the meal of the week the slot falls on.
+func (s Slot) Weekly() Weekly {
+	return Weekly{Weekday: s.Day.Weekday(), Meal: s.Meal}
+}
+
+// Schedule tells which meals are planned on each weekday (EF-13).
+type Schedule map[Weekly]bool
+
+// FullSchedule plans every meal of every day.
+func FullSchedule() Schedule {
+	s := make(Schedule, 7*len(Meals))
+	for d := time.Sunday; d <= time.Saturday; d++ {
+		for _, m := range Meals {
+			s[Weekly{Weekday: d, Meal: m}] = true
+		}
+	}
+	return s
+}
+
+// Meals returns the meals planned on a weekday, in chronological order.
+func (s Schedule) Meals(d time.Weekday) []Meal {
+	var meals []Meal
+	for _, m := range Meals {
+		if s[Weekly{Weekday: d, Meal: m}] {
+			meals = append(meals, m)
+		}
+	}
+	return meals
+}
+
+// Slots returns the planned slots of the given days, in chronological order.
+func (s Schedule) Slots(days []time.Time) []Slot {
+	var slots []Slot
+	for _, d := range days {
+		for _, m := range s.Meals(d.Weekday()) {
+			slots = append(slots, Slot{Day: Day(d), Meal: m})
+		}
+	}
+	return slots
+}
+
 // Day truncates t to its calendar day, expressed at midnight UTC so that day
 // arithmetic never trips over daylight saving changes.
 func Day(t time.Time) time.Time {

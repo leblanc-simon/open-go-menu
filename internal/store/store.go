@@ -18,11 +18,15 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-// ErrDuplicateName is returned when a live dish already bears the name.
-var ErrDuplicateName = errors.New("store: duplicate dish name")
+// ErrDuplicateName is returned when the name is already taken: a live item
+// of the same list, an article, an aisle, an ingredient of the recipe.
+var ErrDuplicateName = errors.New("store: duplicate name")
 
-// ErrNotFound is returned when a live dish does not exist.
+// ErrNotFound is returned when what is asked for does not exist.
 var ErrNotFound = errors.New("store: not found")
+
+// ErrInUse is returned when an article still is an ingredient of a recipe.
+var ErrInUse = errors.New("store: in use")
 
 // Store is the SQLite-backed persistence of the application.
 type Store struct {
@@ -116,4 +120,8 @@ func now() string {
 
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+func isForeignKeyViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed")
 }

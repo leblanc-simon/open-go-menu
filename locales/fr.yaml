@@ -5,6 +5,7 @@ nav:
   skip: Aller au contenu
   label: Navigation principale
   week: Semaine
+  shopping: Courses
   settings: Paramètres
   language: Langue
 
@@ -27,6 +28,7 @@ home:
   add_dishes: Remplir les listes
   today: Aujourd'hui
   slot_empty: Rien de prévu
+  no_meal_planned: Aucun repas à prévoir ce jour-là.
   reroll: Relancer
   draw_one: Tirer au sort
   reroll_component:
@@ -58,6 +60,8 @@ settings:
     starch: Féculents
     protein: Viandes et poissons
     vegetable: Légumes
+    articles: Articles
+    aisles: Rayons
     meals: Repas
   intro:
     dish: Des plats qui font un repas à eux seuls.
@@ -88,13 +92,114 @@ settings:
     protein: Filet de saumon
     vegetable: Haricots verts
   add_button: Ajouter
-  meals_hint: Les repas à prévoir chaque jour.
+  articles:
+    hint: >-
+      Tout ce qui peut s'acheter : les ingrédients des recettes, les composants
+      des repas, et ce que vous ajoutez à la main à la liste de courses. Le
+      rayon range l'article dans la liste.
+    no_aisle: Créer des rayons
+    aisle: Rayon
+    none: Sans rayon
+    save: Enregistrer les articles
+    empty: Aucun article pour l'instant.
+    add: Ajouter un article
+    placeholder: Papier toilette
+    uses:
+      one: "Dans {{.Count}} recette"
+      other: "Dans {{.Count}} recettes"
+  aisles:
+    hint: >-
+      Les rayons du magasin, dans l'ordre où vous les parcourez : la liste de
+      courses suit cet ordre. Les articles sans rayon viennent à la fin.
+    save: Enregistrer les rayons
+    empty: Aucun rayon pour l'instant.
+    add: Ajouter un rayon
+    placeholder: Fruits et légumes
+    up_label: "Monter « {{.Name}} »"
+    down_label: "Descendre « {{.Name}} »"
+  schedule:
+    hint: >-
+      Cochez les repas à prévoir, jour par jour. Un repas fixe revient chaque
+      semaine à la place du tirage au sort.
+    planned: "{{.Day}} — {{.Meal}}"
+    always: "Toujours :"
+    drawn: Tirage au sort
+    fix: Fixer un repas
+    change: Modifier
+    fix_label: "Fixer un repas : {{.Day}} — {{.Meal}}"
+    change_label: "Modifier le repas fixe : {{.Day}} — {{.Meal}}"
+  fixed:
+    back: ← Repas
+    title: "Repas fixe : {{.Day}} — {{.Meal}}"
+    hint: >-
+      Ce repas est servi chaque semaine à la génération, au lieu d'être tiré au
+      sort. Il reste modifiable semaine par semaine depuis la page d'accueil.
+    save: Enregistrer
+    clear: Revenir au tirage au sort
+  ingredients:
+    none: Ingrédients
+    count:
+      one: "{{.Count}} ingrédient"
+      other: "{{.Count}} ingrédients"
+  dish:
+    back: ← Plats complets
+    title: "Ingrédients : {{.Name}}"
+    hint: >-
+      Les ingrédients de la recette, repris dans la liste de courses. Vos
+      féculents, viandes, poissons et légumes sont proposés à la saisie ; un
+      ingrédient ajouté ici ne rejoint pas ces listes.
+    empty: Aucun ingrédient pour l'instant.
+    save: Enregistrer les quantités
+    quantity: Quantité
+    quantity_placeholder: 200 g
+    aisle_keep: —
+    aisle_hint: Le rayon s'applique à l'article partout, y compris dans les autres recettes.
+    add: Ajouter un ingrédient
+    placeholder: Tomates pelées
+    remove: Retirer
+    remove_label: "Retirer « {{.Name}} »"
   share: Part de repas composés
   share_hint: >-
     À 0 %, chaque repas est un plat complet ; à 100 %, chaque repas associe un
     féculent, une viande ou un poisson et un légume. Si une seule des deux
     formes a des éléments disponibles, c'est elle qui est tirée.
   meals_save: Enregistrer
+
+shopping:
+  title: Courses
+  new_title: Nouvelle liste de courses
+  replaces: La nouvelle liste remplace la liste en cours, ses cases cochées et ses ajouts.
+  back_to_list: Revenir à la liste en cours
+  proposal: "Semaine du {{.From}} au {{.To}}"
+  proposal_hint: Les repas de cette semaine sont tous prévus.
+  or_dates: "Ou choisissez les jours :"
+  no_complete_week: >-
+    Aucune semaine n'est entièrement prévue à partir de cette semaine.
+    Choisissez les jours dont les repas sont à acheter.
+  from: Du
+  to: Au
+  create: Créer la liste
+  range: "Courses du {{.From}} au {{.To}}"
+  new: Nouvelle liste
+  missing: "Ces plats n'ont pas d'ingrédients, la liste ne les couvre pas :"
+  missing_item: "{{.Dish}} — {{.Day}}, {{.Meal}}"
+  empty: Rien à acheter.
+  no_aisle: Sans rayon
+  done: Dans le panier
+  extra_title: Ajouter à la liste
+  extra_name: Article
+  extra_placeholder: Papier toilette
+  quantity: Quantité
+  choose_aisle: Choisir un rayon…
+  file: Ranger
+  remove: Retirer
+  tick_label: "Mettre « {{.Name}} » dans le panier"
+  untick_label: "Remettre « {{.Name}} » dans la liste"
+  aisle_label: "Rayon de « {{.Name}} »"
+  remove_label: "Retirer « {{.Name}} » de la liste"
+  need_extra: Ajouté à la main
+  need_dish: "{{.Dish}} — {{.Day}}, {{.Meal}}"
+  need_meal: "{{.Day}}, {{.Meal}}"
 
 weekday:
   monday: Lundi
@@ -147,6 +252,14 @@ validation:
   weight_range: "{{.Field}} : saisissez un nombre entier de 0 à {{.Max}}."
   form_invalid: Rien n'a été enregistré. Corrigez les éléments signalés.
   meals_required: Cochez au moins un repas.
+  ingredient_duplicate: "« {{.Name}} » est déjà dans la recette."
+  quantity_too_long: "La quantité dépasse {{.Max}} caractères."
+  article_duplicate: "L'article « {{.Name}} » existe déjà."
+  aisle_duplicate: "Le rayon « {{.Name}} » existe déjà."
+  extra_duplicate: "« {{.Name}} » est déjà ajouté à la liste."
+  dates_invalid: Saisissez deux dates valides.
+  dates_order: La date de fin précède la date de début.
+  dates_too_long: "La liste couvre au plus {{.Max}} jours."
   share_range: Saisissez un nombre entier de 0 à 100.
 
 flash:
@@ -164,6 +277,23 @@ flash:
   items_saved: Liste enregistrée.
   item_deleted: Retiré de la liste.
   meals_saved: Réglages des repas enregistrés.
+  fixed_saved: Repas fixe enregistré.
+  fixed_cleared: Ce repas est de nouveau tiré au sort.
+  ingredient_added: Ingrédient ajouté.
+  ingredient_removed: Ingrédient retiré.
+  quantities_saved: Quantités enregistrées.
+  article_added: Article ajouté.
+  articles_saved: Articles enregistrés.
+  article_deleted: Article supprimé.
+  article_in_use: Cet article est l'ingrédient d'une recette ; retirez-le d'abord de la recette.
+  article_filed: Article rangé.
+  aisle_added: Rayon ajouté.
+  aisles_saved: Rayons enregistrés.
+  aisle_moved: Rayon déplacé.
+  aisle_deleted: Rayon supprimé ; ses articles n'ont plus de rayon.
+  shopping_started: Liste de courses créée.
+  extra_added: Ajouté à la liste.
+  extra_removed: Retiré de la liste.
 
 error:
   title: Erreur

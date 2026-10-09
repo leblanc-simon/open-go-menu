@@ -15,6 +15,7 @@
     <a class="masthead__brand" href="/">{{ T "app.name" }}</a>
     <nav class="masthead__nav" aria-label="{{ T "nav.label" }}">
       <a href="/" {{ if eq .Nav "home" }}aria-current="page"{{ end }}>{{ T "nav.week" }}</a>
+      <a href="/shopping" {{ if eq .Nav "shopping" }}aria-current="page"{{ end }}>{{ T "nav.shopping" }}</a>
       <a href="/settings" {{ if eq .Nav "settings" }}aria-current="page"{{ end }}>{{ T "nav.settings" }}</a>
     </nav>
   </header>

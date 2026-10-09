@@ -5,6 +5,7 @@ nav:
   skip: Skip to content
   label: Main navigation
   week: Week
+  shopping: Shopping
   settings: Settings
   language: Language
 
@@ -27,6 +28,7 @@ home:
   add_dishes: Fill the lists
   today: Today
   slot_empty: Nothing planned
+  no_meal_planned: No meal to plan that day.
   reroll: Re-roll
   draw_one: Draw
   reroll_component:
@@ -58,6 +60,8 @@ settings:
     starch: Starches
     protein: Meat and fish
     vegetable: Vegetables
+    articles: Articles
+    aisles: Aisles
     meals: Meals
   intro:
     dish: Dishes that make a meal on their own.
@@ -88,13 +92,114 @@ settings:
     protein: Salmon fillet
     vegetable: Green beans
   add_button: Add
-  meals_hint: The meals to plan each day.
+  articles:
+    hint: >-
+      Anything that can be bought: the ingredients of the recipes, the
+      components of the meals, and what you add to the shopping list by hand.
+      The aisle files the article in the list.
+    no_aisle: Create aisles
+    aisle: Aisle
+    none: No aisle
+    save: Save the articles
+    empty: No article yet.
+    add: Add an article
+    placeholder: Toilet paper
+    uses:
+      one: "In {{.Count}} recipe"
+      other: "In {{.Count}} recipes"
+  aisles:
+    hint: >-
+      The aisles of the shop, in the order you walk through them: the
+      shopping list follows it. Articles without aisle come last.
+    save: Save the aisles
+    empty: No aisle yet.
+    add: Add an aisle
+    placeholder: Fruit and vegetables
+    up_label: "Move “{{.Name}}” up"
+    down_label: "Move “{{.Name}}” down"
+  schedule:
+    hint: >-
+      Tick the meals to plan, day by day. A fixed meal comes back every week
+      instead of being drawn.
+    planned: "{{.Day}} — {{.Meal}}"
+    always: "Always:"
+    drawn: Drawn at random
+    fix: Fix a meal
+    change: Change
+    fix_label: "Fix a meal: {{.Day}} — {{.Meal}}"
+    change_label: "Change the fixed meal: {{.Day}} — {{.Meal}}"
+  fixed:
+    back: ← Meals
+    title: "Fixed meal: {{.Day}} — {{.Meal}}"
+    hint: >-
+      This meal is served every week when the week is generated, instead of
+      being drawn. It can still be changed week by week from the home page.
+    save: Save
+    clear: Draw it at random again
+  ingredients:
+    none: Ingredients
+    count:
+      one: "{{.Count}} ingredient"
+      other: "{{.Count}} ingredients"
+  dish:
+    back: ← Full dishes
+    title: "Ingredients: {{.Name}}"
+    hint: >-
+      The ingredients of the recipe, carried to the shopping list. Your
+      starches, meats, fish and vegetables are suggested as you type; an
+      ingredient added here does not join those lists.
+    empty: No ingredient yet.
+    save: Save the quantities
+    quantity: Quantity
+    quantity_placeholder: 200 g
+    aisle_keep: —
+    aisle_hint: The aisle applies to the article everywhere, other recipes included.
+    add: Add an ingredient
+    placeholder: Peeled tomatoes
+    remove: Remove
+    remove_label: "Remove “{{.Name}}”"
   share: Share of composed meals
   share_hint: >-
     At 0 %, every meal is a full dish; at 100 %, every meal pairs a starch, a
     meat or fish and a vegetable. When only one of the two forms has items
     available, that one is drawn.
   meals_save: Save
+
+shopping:
+  title: Shopping
+  new_title: New shopping list
+  replaces: The new list replaces the current one, its ticks and its additions.
+  back_to_list: Back to the current list
+  proposal: "Week of {{.From}} to {{.To}}"
+  proposal_hint: The meals of this week are all planned.
+  or_dates: "Or choose the days:"
+  no_complete_week: >-
+    No week is fully planned from this week on. Choose the days whose meals
+    are to be bought.
+  from: From
+  to: To
+  create: Create the list
+  range: "Shopping for {{.From}} to {{.To}}"
+  new: New list
+  missing: "These dishes have no ingredients, the list does not cover them:"
+  missing_item: "{{.Dish}} — {{.Day}}, {{.Meal}}"
+  empty: Nothing to buy.
+  no_aisle: No aisle
+  done: In the basket
+  extra_title: Add to the list
+  extra_name: Article
+  extra_placeholder: Toilet paper
+  quantity: Quantity
+  choose_aisle: Choose an aisle…
+  file: File
+  remove: Remove
+  tick_label: "Put “{{.Name}}” in the basket"
+  untick_label: "Put “{{.Name}}” back on the list"
+  aisle_label: "Aisle of “{{.Name}}”"
+  remove_label: "Remove “{{.Name}}” from the list"
+  need_extra: Added by hand
+  need_dish: "{{.Dish}} — {{.Day}}, {{.Meal}}"
+  need_meal: "{{.Day}}, {{.Meal}}"
 
 weekday:
   monday: Monday
@@ -147,6 +252,14 @@ validation:
   weight_range: "{{.Field}}: enter a whole number from 0 to {{.Max}}."
   form_invalid: Nothing was saved. Fix the flagged items.
   meals_required: Tick at least one meal.
+  ingredient_duplicate: "“{{.Name}}” is already in the recipe."
+  quantity_too_long: "The quantity exceeds {{.Max}} characters."
+  article_duplicate: "The article “{{.Name}}” already exists."
+  aisle_duplicate: "The aisle “{{.Name}}” already exists."
+  extra_duplicate: "“{{.Name}}” is already added to the list."
+  dates_invalid: Enter two valid dates.
+  dates_order: The end date comes before the start date.
+  dates_too_long: "A list covers {{.Max}} days at most."
   share_range: Enter a whole number from 0 to 100.
 
 flash:
@@ -164,6 +277,23 @@ flash:
   items_saved: List saved.
   item_deleted: Removed from the list.
   meals_saved: Meal settings saved.
+  fixed_saved: Fixed meal saved.
+  fixed_cleared: This meal is drawn at random again.
+  ingredient_added: Ingredient added.
+  ingredient_removed: Ingredient removed.
+  quantities_saved: Quantities saved.
+  article_added: Article added.
+  articles_saved: Articles saved.
+  article_deleted: Article deleted.
+  article_in_use: This article is an ingredient of a recipe; remove it from the recipe first.
+  article_filed: Article filed.
+  aisle_added: Aisle added.
+  aisles_saved: Aisles saved.
+  aisle_moved: Aisle moved.
+  aisle_deleted: Aisle deleted; its articles have no aisle any more.
+  shopping_started: Shopping list created.
+  extra_added: Added to the list.
+  extra_removed: Removed from the list.
 
 error:
   title: Error

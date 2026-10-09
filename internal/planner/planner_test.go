@@ -67,17 +67,36 @@ func TestWeekStartAcrossDST(t *testing.T) {
 	}
 }
 
-func TestSlotsOrder(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), []Meal{Dinner, Lunch})
+func TestScheduleSlots(t *testing.T) {
+	days := WeekDays(day("2026-10-05")) // a Monday
+	slots := FullSchedule().Slots(days)
 	if len(slots) != 14 {
 		t.Fatalf("len = %d", len(slots))
 	}
 	if slots[0].Meal != Lunch || slots[1].Meal != Dinner {
 		t.Errorf("meals out of order: %v", slots[:2])
 	}
-	if got := Slots(WeekDays(day("2026-10-05")), []Meal{Dinner}); len(got) != 7 {
-		t.Errorf("dinner only: len = %d", len(got))
+	// EF-13: Wednesday lunch and dinner every day.
+	sched := Schedule{{time.Wednesday, Lunch}: true}
+	for d := time.Sunday; d <= time.Saturday; d++ {
+		sched[Weekly{d, Dinner}] = true
 	}
+	slots = sched.Slots(days)
+	if len(slots) != 8 {
+		t.Fatalf("len = %d", len(slots))
+	}
+	if s := slots[2]; s.Day.Weekday() != time.Wednesday || s.Meal != Lunch || slots[3].Meal != Dinner {
+		t.Errorf("Wednesday = %v, %v", slots[2], slots[3])
+	}
+}
+
+// dinners returns the dinner slots of the given days.
+func dinners(days ...time.Time) []Slot {
+	var slots []Slot
+	for _, d := range days {
+		slots = append(slots, Slot{Day: d, Meal: Dinner})
+	}
+	return slots
 }
 
 func targetsAll(slots []Slot) map[Slot]bool {
@@ -103,7 +122,7 @@ func TestDrawNoRepeatWhileCandidatesRemain(t *testing.T) {
 	for i := int64(1); i <= 20; i++ {
 		cs = append(cs, flat(i, 1+int(i)%10))
 	}
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	for seed := uint64(0); seed < 50; seed++ {
 		picks := drawer(seed, dishes(cs...), 50).Draw(slots, nil, targetsAll(slots), Plate{})
 		if len(picks) != 14 {
@@ -121,7 +140,7 @@ func TestDrawNoRepeatWhileCandidatesRemain(t *testing.T) {
 
 func TestDrawRespectsSeasonZero(t *testing.T) {
 	summerless := Candidate{ID: 1, Weight: 10, Seasonal: [4]int{10, 0, 10, 10}}
-	slots := Slots(WeekDays(day("2026-07-06")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-07-06")))
 	picks := drawer(7, dishes(summerless, flat(2, 1)), 0).Draw(slots, nil, targetsAll(slots), Plate{})
 	for s, p := range picks {
 		if p[Dish] == 1 {
@@ -135,7 +154,7 @@ func TestDrawRespectsSeasonZero(t *testing.T) {
 }
 
 func TestDrawAvoidsConsecutiveRepeatWhenExhausted(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	picks := drawer(3, dishes(flat(1, 5), flat(2, 5)), 0).Draw(slots, nil, targetsAll(slots), Plate{})
 	for i := 1; i < len(slots); i++ {
 		if picks[slots[i]] == picks[slots[i-1]] {
@@ -145,14 +164,14 @@ func TestDrawAvoidsConsecutiveRepeatWhenExhausted(t *testing.T) {
 }
 
 func TestDrawNothingAvailable(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	if picks := drawer(1, dishes(flat(1, 0)), 50).Draw(slots, nil, targetsAll(slots), Plate{}); len(picks) != 0 {
 		t.Errorf("picks = %v", picks)
 	}
 }
 
 func TestDrawFillKeepsExistingAndAvoidsThem(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), []Meal{Dinner})[:3]
+	slots := dinners(WeekDays(day("2026-10-05"))[:3]...)
 	plan := map[Slot]Plate{slots[0]: {Dish: 1}, slots[2]: {Dish: 3}}
 	targets := map[Slot]bool{slots[1]: true}
 	picks := drawer(9, dishes(flat(1, 5), flat(2, 5), flat(3, 5)), 0).Draw(slots, plan, targets, Plate{})
@@ -162,12 +181,48 @@ func TestDrawFillKeepsExistingAndAvoidsThem(t *testing.T) {
 }
 
 func TestDrawAvoid(t *testing.T) {
-	slots := Slots([]time.Time{day("2026-10-05")}, []Meal{Dinner})
+	slots := dinners(day("2026-10-05"))
 	for seed := uint64(0); seed < 20; seed++ {
 		picks := drawer(seed, dishes(flat(1, 5), flat(2, 5)), 0).
 			Draw(slots, map[Slot]Plate{slots[0]: {Dish: 1}}, targetsAll(slots), Plate{Dish: 1})
 		if picks[slots[0]][Dish] != 2 {
 			t.Fatalf("reroll kept the avoided dish")
+		}
+	}
+}
+
+func TestDrawFixed(t *testing.T) {
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
+	wednesday := Weekly{time.Wednesday, Lunch}
+	pools := components(1)
+	pools[Dish] = []Candidate{flat(1, 5), flat(2, 5), flat(3, 0)}
+	for seed := uint64(0); seed < 20; seed++ {
+		d := drawer(seed, pools, 0)
+		// A fixed plate is served even with a zero weight, and its items
+		// count as served this week (RG-10).
+		d.Fixed = map[Weekly]Plate{wednesday: {Dish: 3}, {time.Friday, Dinner}: {Starch: 10, Vegetable: 30}}
+		picks := d.Draw(slots, nil, targetsAll(slots), Plate{})
+		if len(picks) != 14 {
+			t.Fatalf("seed %d: %d picks", seed, len(picks))
+		}
+		for _, s := range slots {
+			switch {
+			case s.Weekly() == wednesday:
+				if picks[s] != (Plate{Dish: 3}) {
+					t.Fatalf("seed %d: Wednesday lunch = %v", seed, picks[s])
+				}
+			case s.Day.Weekday() == time.Friday && s.Meal == Dinner:
+				if picks[s] != (Plate{Starch: 10, Vegetable: 30}) {
+					t.Fatalf("seed %d: Friday dinner = %v", seed, picks[s])
+				}
+			case picks[s][Dish] == 3:
+				t.Fatalf("seed %d: fixed dish drawn on %v", seed, s)
+			}
+		}
+		// Only targets get their fixed plate.
+		thursday := slots[6:8]
+		if picks := d.Draw(slots, nil, targetsAll(thursday), Plate{}); len(picks) != 2 {
+			t.Fatalf("seed %d: non-target fixed slot served: %v", seed, picks)
 		}
 	}
 }
@@ -185,7 +240,7 @@ func components(n int) Pools {
 }
 
 func TestDrawComposedOnly(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	pools := components(3)
 	pools[Dish] = []Candidate{flat(1, 5)}
 	picks := drawer(5, pools, 100).Draw(slots, nil, targetsAll(slots), Plate{})
@@ -208,7 +263,7 @@ func TestDrawComposedOnly(t *testing.T) {
 }
 
 func TestDrawFallsBackToAvailableForm(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	// TR-10: no full dish, share 0 → composed anyway.
 	picks := drawer(1, components(5), 0).Draw(slots, nil, targetsAll(slots), Plate{})
 	if len(picks) != 14 {
@@ -226,7 +281,7 @@ func TestDrawFallsBackToAvailableForm(t *testing.T) {
 func TestDrawMissingComponentKindIsOmitted(t *testing.T) {
 	pools := components(5)
 	pools[Starch] = nil
-	slots := Slots([]time.Time{day("2026-10-05")}, []Meal{Dinner})
+	slots := dinners(day("2026-10-05"))
 	p := drawer(2, pools, 100).Draw(slots, nil, targetsAll(slots), Plate{})[slots[0]]
 	if p[Starch] != 0 || p[Protein] == 0 || p[Vegetable] == 0 {
 		t.Errorf("RG-09: plate = %v", p)
@@ -238,7 +293,7 @@ func TestDrawShare(t *testing.T) {
 	for i := range 20 {
 		pools[Dish] = append(pools[Dish], flat(int64(100+i), 5))
 	}
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	composed := 0
 	for seed := uint64(0); seed < 100; seed++ {
 		for _, p := range drawer(seed, pools, 25).Draw(slots, nil, targetsAll(slots), Plate{}) {
@@ -253,7 +308,7 @@ func TestDrawShare(t *testing.T) {
 }
 
 func TestDrawComponent(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), []Meal{Dinner})
+	slots := dinners(WeekDays(day("2026-10-05"))...)
 	plan := map[Slot]Plate{slots[2]: {Starch: 10, Protein: 20, Vegetable: 30}}
 	for seed := uint64(0); seed < 20; seed++ {
 		id, ok := drawer(seed, components(2), 100).DrawComponent(slots, plan, slots[2], Vegetable)
@@ -268,7 +323,7 @@ func TestDrawComponent(t *testing.T) {
 
 // A re-roll changes the item even when its list is exhausted for the week.
 func TestRerollWhenListExhausted(t *testing.T) {
-	slots := Slots(WeekDays(day("2026-10-05")), Meals)
+	slots := FullSchedule().Slots(WeekDays(day("2026-10-05")))
 	pools := components(3)
 	for seed := uint64(0); seed < 50; seed++ {
 		d := drawer(seed, pools, 100)
@@ -287,7 +342,7 @@ func TestRerollWhenListExhausted(t *testing.T) {
 	}
 	// With a single candidate, re-rolling gives it back rather than nothing.
 	single := dishes(flat(1, 5))
-	one := Slots([]time.Time{day("2026-10-05")}, []Meal{Dinner})
+	one := dinners(day("2026-10-05"))
 	if p := drawer(1, single, 0).Draw(one, map[Slot]Plate{one[0]: {Dish: 1}}, targetsAll(one), Plate{Dish: 1}); p[one[0]][Dish] != 1 {
 		t.Errorf("single candidate: %v", p)
 	}

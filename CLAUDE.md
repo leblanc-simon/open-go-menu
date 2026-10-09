@@ -20,18 +20,30 @@ de tirage, EI interface, ENF non fonctionnelles, SEC sécurité, TR recette) et 
   `csrfx` → routes.
 - `internal/planner` : logique **pure** et testée — saisons (météorologiques, évaluées jour par
   jour), bornes de semaine (jours en minuit UTC, pas de souci d'heure d'été), tirage pondéré.
+  `Weekly` = repas de la semaine (« mercredi midi ») ; `Schedule` = repas planifiés par jour,
+  dont `Slots(days)` tire les créneaux. `Drawer.Fixed` sert les repas fixes avant le tirage
+  (uniquement à la génération de la semaine, pas à la relance d'un repas).
   Quatre sortes d'éléments (`Kind` : `Dish` plat complet, `Starch`, `Protein`, `Vegetable`) ;
   une assiette (`Plate`, tableau indexé par `Kind`, 0 = rien) est soit un plat complet, soit
   des composants. `Drawer.Draw` choisit la forme selon `ComposedShare` (repli sur l'autre forme
   si l'une n'a pas de candidat), puis tire chaque élément (poids général × poids saisonnier, pas
   de doublon par liste tant qu'il reste des candidats, puis repli en évitant le repas
   précédent). `DrawComponent` relance un seul composant.
+- `internal/shopping` : logique **pure** de la liste de courses — regroupe les besoins
+  (`Row` : article + repas ou ajout à la main) en lignes par article, rangées par rayon ;
+  une ligne cochée retient la clé de ses besoins (`Line.Key`) et se décoche si un besoin
+  nouveau apparaît.
 - `internal/store` : SQLite (`modernc.org/sqlite`, pur Go). Migrations `migrations/NNN_*.sql`
   embarquées, appliquées au démarrage et tracées dans `schema_migrations` ; ne jamais modifier
   une migration publiée, en ajouter une. Table `items` (une colonne `kind`, nom unique par
   sorte) et `plan_items` (une ligne par `(day, meal, kind)`). Suppression **logique**
   (`deleted_at`) : les plannings passés gardent le nom. Planning stocké par date, jamais par
-  semaine — changer le jour de début ne perd rien.
+  semaine — changer le jour de début ne perd rien. `weekly_meals` (repas planifiés par jour,
+  `weekday` 0 = dimanche), `fixed_items` (repas fixes, même forme que `plan_items`),
+  `articles` (tout ce qui s'achète, avec rayon) + `dish_ingredients` (ingrédients des plats,
+  quantité en texte libre), `component_articles` (article acheté pour un composant, relié par
+  le nom à la première liste), `aisles` (ordonnés), `shopping_extras` / `shopping_checks` (la
+  liste en cours, vidée à chaque nouvelle liste ; sa période dans `settings`).
 - `internal/web` : handlers `net/http` (stdlib, pas de framework), `html/template` parsés une
   fois puis clonés par requête pour y injecter `T`/`Tn` (localizer) et `csrfField`. POST →
   redirection 303 → GET, message flash = **clé** `flash.*` en cookie (jamais de texte libre).
@@ -57,8 +69,9 @@ ré-implémenter ces briques. Préfixe d'env `OGM_`.
   séparés via l'attribut `form=` : ainsi Entrée dans un champ déclenche « Enregistrer », pas
   une suppression.
 
-## V2 — ingrédients
+## Liste de courses
 
-Prévu sans refonte : nouvelle migration (`003`) ajoutant `ingredients` et `dish_ingredients`, fiche menu
-`/settings/items/{id}`, liste de courses agrégée sur la semaine. Ne pas modifier la table
-`items` pour cela.
+Ponctuelle : une seule liste à la fois, sur une période ; une nouvelle liste efface cases et
+ajouts. Calculée à chaque affichage depuis le planning (seuls les repas planifiés, EF-13). Les
+formulaires des sections `[data-in-place]` (semaine, liste) sont postés en `fetch` par le JS.
+Ne pas modifier la table `items` : ce qui concerne l'achat vit dans les tables d'articles.

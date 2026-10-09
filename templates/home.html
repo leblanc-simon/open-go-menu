@@ -1,5 +1,5 @@
 {{ define "content" }}
-<section class="week">
+<section class="week" data-in-place>
   <header class="week__head">
     <h1 class="week__title">{{ .Range }}</h1>
 
@@ -49,9 +49,10 @@
         </p>
       </div>
       <div class="day__meals">
+        {{ if not .Slots }}<p class="day__off">{{ T "home.no_meal_planned" }}</p>{{ end }}
         {{ range .Slots }}
         {{ $slot := . }}
-        <article class="meal {{ if not .Filled }}meal--empty{{ end }}" data-slot="{{ .Key }}" {{ if .Targets }}data-movable data-move-prompt="{{ .MovePrompt }}"{{ end }}>
+        <article class="meal meal--{{ .Meal }} {{ if not .Filled }}meal--empty{{ end }}" data-slot="{{ .Key }}" {{ if .Targets }}data-movable data-move-prompt="{{ .MovePrompt }}"{{ end }}>
           <h3 class="meal__slot">{{ .MealLabel }}</h3>
           {{ if .DishName }}
           <p class="meal__dish">{{ .DishName }}</p>

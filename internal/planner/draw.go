@@ -83,22 +83,6 @@ type Slot struct {
 	Meal Meal
 }
 
-// Slots returns every slot of the given days for the given meals, in
-// chronological order.
-func Slots(days []time.Time, meals []Meal) []Slot {
-	slots := make([]Slot, 0, len(days)*len(meals))
-	for _, d := range days {
-		for _, m := range Meals {
-			for _, enabled := range meals {
-				if m == enabled {
-					slots = append(slots, Slot{Day: Day(d), Meal: m})
-				}
-			}
-		}
-	}
-	return slots
-}
-
 // Drawer draws plates for a week.
 type Drawer struct {
 	Rng   *rand.Rand
@@ -106,6 +90,9 @@ type Drawer struct {
 	// ComposedShare is the probability, in percent, that a meal is composed
 	// rather than a full dish (RG-08).
 	ComposedShare int
+	// Fixed holds the plates always served on a meal of the week (EF-18):
+	// Draw serves them on its targets instead of drawing.
+	Fixed map[Weekly]Plate
 }
 
 // Draw picks a plate for every target slot.
@@ -113,27 +100,40 @@ type Drawer struct {
 // slots is the whole week in chronological order; plan holds the plates
 // already assigned to it. Items of non-target slots count as already served
 // this week (RG-03), as do the items of avoid — typically the current plate
-// of a slot being re-rolled. Target slots are drawn in chronological order. A
-// slot nothing can fill is absent from the result (RG-05).
+// of a slot being re-rolled. Target slots with a fixed plate get it first, so
+// that the draw of the others avoids its items (RG-10); the other target
+// slots are drawn in chronological order. A slot nothing can fill is absent
+// from the result (RG-05).
 func (d Drawer) Draw(slots []Slot, plan map[Slot]Plate, targets map[Slot]bool, avoid Plate) map[Slot]Plate {
 	used := usedItems(slots, plan, targets, avoid)
 	picks := make(map[Slot]Plate, len(targets))
+	serve := func(s Slot, p Plate) {
+		picks[s] = p
+		for k, id := range p {
+			if id != 0 {
+				used[k][id] = true
+			}
+		}
+	}
+	for _, s := range slots {
+		if f := d.Fixed[s.Weekly()]; targets[s] && !f.IsZero() {
+			serve(s, f)
+		}
+	}
 	var prev Plate
 	for _, s := range slots {
 		if !targets[s] {
 			prev = plan[s]
 			continue
 		}
-		p := d.plate(SeasonOf(s.Day), used, prev, avoid)
-		prev = p
-		if p.IsZero() {
+		if p, fixed := picks[s]; fixed {
+			prev = p
 			continue
 		}
-		picks[s] = p
-		for k, id := range p {
-			if id != 0 {
-				used[k][id] = true
-			}
+		p := d.plate(SeasonOf(s.Day), used, prev, avoid)
+		prev = p
+		if !p.IsZero() {
+			serve(s, p)
 		}
 	}
 	return picks

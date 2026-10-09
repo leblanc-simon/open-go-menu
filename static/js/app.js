@@ -153,7 +153,7 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-// ── Forms of the week without reloading ────────────────────────────────────
+// ── Forms of the week and the shopping list without reloading ─────────────
 // The form is posted in the background and the page it leads to replaces the
 // current one, kept where it was on screen: the meal acted on stays put, and
 // the confirmation shows as a toast instead of pushing the week down.
@@ -227,7 +227,7 @@ async function submitInPlace(form, submitter) {
 
 document.addEventListener("submit", (event) => {
   const form = event.target;
-  if (!form.closest(".week") || form.getAttribute("method") !== "post") {
+  if (!form.closest("[data-in-place]") || form.getAttribute("method") !== "post") {
     return;
   }
   event.preventDefault();

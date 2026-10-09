@@ -29,7 +29,7 @@ type App struct {
 }
 
 // pageNames lists the templates rendered inside the layout.
-var pageNames = []string{"home", "settings", "error"}
+var pageNames = []string{"home", "settings", "shopping", "error"}
 
 // New parses the templates of templateFS and returns a ready App.
 func New(templateFS fs.FS, st *store.Store, bundle *i18n.Bundle, csrf *csrfx.Protector, logger *slog.Logger) (*App, error) {
@@ -62,10 +62,30 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings", a.settings)
 	mux.HandleFunc("GET /settings/meals", a.mealsSettings)
 	mux.HandleFunc("POST /settings/meals", a.saveMeals)
+	mux.HandleFunc("GET /settings/meals/{weekday}/{meal}", a.fixedMeal)
+	mux.HandleFunc("POST /settings/meals/{weekday}/{meal}", a.saveFixedMeal)
 	mux.HandleFunc("GET /settings/{list}", a.settingsList)
 	mux.HandleFunc("POST /settings/{list}", a.addItem)
 	mux.HandleFunc("POST /settings/{list}/save", a.saveItems)
 	mux.HandleFunc("POST /settings/items/{id}/delete", a.deleteItem)
+	mux.HandleFunc("GET /settings/items/{id}", a.dishIngredients)
+	mux.HandleFunc("POST /settings/items/{id}/ingredients", a.addIngredient)
+	mux.HandleFunc("POST /settings/items/{id}/ingredients/save", a.saveQuantities)
+	mux.HandleFunc("POST /settings/items/{id}/ingredients/{article}/delete", a.removeIngredient)
+	mux.HandleFunc("GET /settings/articles", a.articlesSettings)
+	mux.HandleFunc("POST /settings/articles", a.addArticle)
+	mux.HandleFunc("POST /settings/articles/save", a.saveArticles)
+	mux.HandleFunc("POST /settings/articles/{id}/delete", a.deleteArticle)
+	mux.HandleFunc("GET /settings/aisles", a.aislesSettings)
+	mux.HandleFunc("POST /settings/aisles", a.addAisle)
+	mux.HandleFunc("POST /settings/aisles/save", a.saveAisles)
+	mux.HandleFunc("POST /settings/aisles/{id}/move", a.moveAisle)
+	mux.HandleFunc("POST /settings/aisles/{id}/delete", a.deleteAisle)
+	mux.HandleFunc("GET /shopping", a.shopping)
+	mux.HandleFunc("GET /shopping/new", a.newShopping)
+	mux.HandleFunc("POST /shopping", a.startShopping)
+	mux.HandleFunc("POST /shopping/extras", a.addExtra)
+	mux.HandleFunc("POST /shopping/articles/{id}", a.shoppingLine)
 	mux.HandleFunc("/", a.notFound)
 }
 

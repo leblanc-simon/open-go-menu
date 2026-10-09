@@ -34,7 +34,7 @@ type homeView struct {
 	HasItems   bool
 	Choices    []choiceList // the lists of the manual picker, full dishes first
 	Days       []dayView
-	Wide       bool // two meals a day: slots side by side
+	Wide       bool // two meals on some day: slots side by side
 }
 
 type option struct {
@@ -102,7 +102,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	meals, err := a.Store.Meals(ctx)
+	sched, err := a.Store.Schedule(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -129,13 +129,10 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 		IsCurrent: first.Equal(planner.WeekStart(today, start)),
 		PrevURL:   weekURL(first.AddDate(0, 0, -7)),
 		NextURL:   weekURL(first.AddDate(0, 0, 7)),
-		Wide:      len(meals) > 1,
+		Choices:   choices(loc, items),
 	}
 	for _, k := range planner.Kinds {
 		v.HasItems = v.HasItems || len(items[k]) > 0
-		v.Choices = append(v.Choices, choiceList{
-			Kind: int(k), Key: k.Key(), Label: loc.T("kind." + k.Key()), Items: items[k],
-		})
 	}
 	// Weekday options, starting on Monday as calendars do.
 	for i := 1; i <= 7; i++ {
@@ -145,7 +142,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	filled := 0
+	filled, planned := 0, 0
 	for _, d := range days {
 		season := planner.SeasonOf(d)
 		dv := dayView{
@@ -156,6 +153,9 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 			Label:   loc.T("season." + season.Key()),
 			IsToday: d.Equal(today),
 		}
+		meals := sched.Meals(d.Weekday())
+		planned += len(meals)
+		v.Wide = v.Wide || len(meals) > 1
 		for _, m := range meals {
 			sv := slotView{
 				Meal:      string(m),
@@ -188,7 +188,7 @@ func (a *App) home(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case filled == 0:
 		v.State = weekEmpty
-	case filled < len(days)*len(meals):
+	case filled < planned:
 		v.State = weekPartial
 	default:
 		v.State = weekFull
@@ -221,6 +221,15 @@ func (a *App) setWeekStart(w http.ResponseWriter, r *http.Request) {
 	}
 	_, ref := a.week(r, time.Weekday(n))
 	backToWeek(w, r, ref, "", "flash.week_start_saved")
+}
+
+// choices returns the lists of the manual picker, full dishes first.
+func choices(loc *i18n.Localizer, items [planner.KindCount][]store.Item) []choiceList {
+	var out []choiceList
+	for _, k := range planner.Kinds {
+		out = append(out, choiceList{Kind: int(k), Key: k.Key(), Label: loc.T("kind." + k.Key()), Items: items[k]})
+	}
+	return out
 }
 
 // drawer loads the live items and the composed share for a draw.
@@ -259,7 +268,7 @@ func (a *App) weekSlots(ctx context.Context, day time.Time) ([]planner.Slot, map
 	if err != nil {
 		return nil, nil, err
 	}
-	meals, err := a.Store.Meals(ctx)
+	sched, err := a.Store.Schedule(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -272,7 +281,7 @@ func (a *App) weekSlots(ctx context.Context, day time.Time) ([]planner.Slot, map
 	for s, e := range entries {
 		plan[s] = e.Plate
 	}
-	return planner.Slots(days, meals), plan, nil
+	return sched.Slots(days), plan, nil
 }
 
 // generate draws the week: every meal (mode=all) or the empty ones only.
@@ -295,6 +304,17 @@ func (a *App) generate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.fail(w, r, err)
 		return
+	}
+	// Fixed meals are served by the week's draw only: re-rolling one meal
+	// draws it at random (EF-18).
+	fixed, err := a.Store.FixedPlates(ctx)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	d.Fixed = make(map[planner.Weekly]planner.Plate, len(fixed))
+	for w, e := range fixed {
+		d.Fixed[w] = e.Plate
 	}
 	picks := d.Draw(slots, plan, targets, planner.Plate{})
 	if err := a.Store.SetPlates(ctx, picks); err != nil {
@@ -495,8 +515,28 @@ func containsSlot(slots []planner.Slot, s planner.Slot) bool {
 	return false
 }
 
+var weekdayNames = [...]string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
+
 func weekdayKey(d time.Weekday) string {
-	return "weekday." + [...]string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}[d]
+	return "weekday." + weekdayNames[d]
+}
+
+// weeklyKey names a meal of the week in forms and URLs: "wednesday/lunch".
+func weeklyKey(w planner.Weekly) string {
+	return weekdayNames[w.Weekday] + "/" + string(w.Meal)
+}
+
+func parseWeekly(day, meal string) (planner.Weekly, bool) {
+	m, ok := planner.ParseMeal(meal)
+	if !ok {
+		return planner.Weekly{}, false
+	}
+	for d, name := range weekdayNames {
+		if name == day {
+			return planner.Weekly{Weekday: time.Weekday(d), Meal: m}, true
+		}
+	}
+	return planner.Weekly{}, false
 }
 
 func monthKey(m time.Month) string {

@@ -5,14 +5,14 @@
   {{ range .Tabs }}<a href="{{ .URL }}" {{ if .Current }}aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
 </nav>
 
-{{ if .Kind }}
+{{ if eq .View "list" }}
 <section class="panel" aria-labelledby="list-title">
   <h2 class="panel__title" id="list-title">{{ T (printf "settings.tab.%s" .Kind) }}</h2>
   <p class="panel__hint">{{ T (printf "settings.intro.%s" .Kind) }} {{ T "settings.weights_hint" . }}</p>
 
   {{ if .Rows }}
   {{ with .SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
-  <form class="items" method="post" action="{{ .ListURL }}/save">
+  <form class="items items--{{ .Kind }}" method="post" action="{{ .ListURL }}/save">
     {{ csrfField }}
     <div class="item item--head" aria-hidden="true">
       <span>{{ T "settings.name" }}</span>
@@ -43,6 +43,7 @@
       </div>
       {{ end }}
       <div class="field field--delete">
+        {{ with .Ingredients }}<a class="link-button" href="/settings/items/{{ $row.ID }}">{{ . }}</a>{{ end }}
         <button class="link-button link-button--danger" type="submit" form="delete-{{ .ID }}">{{ T "settings.delete" }}</button>
       </div>
       {{ if .Errors }}<ul class="field-errors">{{ range .Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
@@ -88,15 +89,235 @@
   </form>
 </section>
 
+{{ else if eq .View "dish" }}
+<p class="back"><a href="/settings/dishes">{{ T "settings.dish.back" }}</a></p>
+<section class="panel" aria-labelledby="dish-title">
+  <h2 class="panel__title" id="dish-title">{{ .Dish.Title }}</h2>
+  <p class="panel__hint">{{ T "settings.dish.hint" }}</p>
+  {{ if .Dish.Ingredients }}
+  {{ with .Dish.SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="ingredients" method="post" action="{{ .Dish.Action }}/save">
+    {{ csrfField }}
+    {{ range .Dish.Ingredients }}
+    <div class="ingredients__item">
+      <input type="hidden" name="id" value="{{ .ID }}">
+      <span class="ingredients__name" id="ingredient-{{ .ID }}">{{ .Name }}</span>
+      <input class="ingredients__quantity" name="quantity_{{ .ID }}" value="{{ .Quantity }}" maxlength="50" autocomplete="off"
+        placeholder="{{ T "settings.dish.quantity" }}" aria-label="{{ T "settings.dish.quantity" }}" aria-describedby="ingredient-{{ .ID }}"
+        {{ if .Invalid }}aria-invalid="true"{{ end }}>
+      <button class="link-button link-button--danger" type="submit" form="remove-{{ .ID }}" aria-label="{{ .RemoveLabel }}">{{ T "settings.dish.remove" }}</button>
+    </div>
+    {{ end }}
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">{{ T "settings.dish.save" }}</button>
+    </div>
+  </form>
+  {{ range .Dish.Ingredients }}
+  <form id="remove-{{ .ID }}" method="post" action="{{ $.Dish.Action }}/{{ .ID }}/delete" hidden>{{ csrfField }}</form>
+  {{ end }}
+  {{ else }}
+  <p class="panel__empty">{{ T "settings.dish.empty" }}</p>
+  {{ end }}
+</section>
+
+<section class="panel" id="add-ingredient" aria-labelledby="add-ingredient-title">
+  <h2 class="panel__title" id="add-ingredient-title">{{ T "settings.dish.add" }}</h2>
+  <form class="add-form" method="post" action="{{ .Dish.Action }}">
+    {{ csrfField }}
+    <div class="add-form__field add-form__field--name">
+      <label for="ingredient">{{ T "settings.name" }}</label>
+      <input id="ingredient" name="name" value="{{ .Dish.New }}" required maxlength="100" list="article-suggestions" autocomplete="off"
+        placeholder="{{ T "settings.dish.placeholder" }}" {{ if .Dish.NewErr }}aria-invalid="true" aria-describedby="ingredient-error" autofocus{{ end }}>
+    </div>
+    <div class="add-form__field">
+      <label for="quantity">{{ T "settings.dish.quantity" }}</label>
+      <input id="quantity" name="quantity" value="{{ .Dish.NewQuantity }}" maxlength="50" autocomplete="off" placeholder="{{ T "settings.dish.quantity_placeholder" }}">
+    </div>
+    {{ if .Aisles }}
+    <div class="add-form__field">
+      <label for="aisle">{{ T "settings.articles.aisle" }}</label>
+      <select id="aisle" name="aisle" aria-describedby="aisle-hint">
+        <option value="">{{ T "settings.dish.aisle_keep" }}</option>
+        {{ range .Aisles }}<option value="{{ .ID }}" {{ if eq .ID $.Dish.NewAisle }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+      </select>
+    </div>
+    {{ end }}
+    <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
+    {{ with .Dish.NewErr }}<p class="form-error" id="ingredient-error" role="alert">{{ . }}</p>{{ end }}
+    {{ if .Aisles }}<p class="panel__hint add-form__hint" id="aisle-hint">{{ T "settings.dish.aisle_hint" }}</p>{{ end }}
+    <datalist id="article-suggestions">
+      {{ range .Dish.Suggestions }}<option value="{{ . }}"></option>{{ end }}
+    </datalist>
+  </form>
+</section>
+
+{{ else if eq .View "articles" }}
+<section class="panel" aria-labelledby="articles-title">
+  <h2 class="panel__title" id="articles-title">{{ T "settings.tab.articles" }}</h2>
+  <p class="panel__hint">{{ T "settings.articles.hint" }}{{ if not .Aisles }} <a href="/settings/aisles">{{ T "settings.articles.no_aisle" }}</a>{{ end }}</p>
+  {{ if .Names }}
+  {{ with .SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="names" method="post" action="/settings/articles/save">
+    {{ csrfField }}
+    {{ range .Names }}
+    {{ $row := . }}
+    <fieldset class="names__row {{ if .Invalid }}names__row--invalid{{ end }}">
+      <legend class="visually-hidden">{{ .Name }}</legend>
+      <input type="hidden" name="id" value="{{ .ID }}">
+      <div class="names__field names__field--name">
+        <label for="name_{{ .ID }}">{{ T "settings.name" }}</label>
+        <input id="name_{{ .ID }}" name="name_{{ .ID }}" value="{{ .Name }}" required maxlength="100" {{ if .Invalid }}aria-invalid="true"{{ end }}>
+      </div>
+      <div class="names__field">
+        <label for="aisle_{{ .ID }}">{{ T "settings.articles.aisle" }}</label>
+        <select id="aisle_{{ .ID }}" name="aisle_{{ .ID }}">
+          <option value="">{{ T "settings.articles.none" }}</option>
+          {{ range $.Aisles }}<option value="{{ .ID }}" {{ if eq .ID $row.Aisle }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+        </select>
+      </div>
+      <div class="names__tools">
+        {{ if .Uses }}<span class="names__uses">{{ .Uses }}</span>
+        {{ else }}<button class="link-button link-button--danger" type="submit" form="delete-{{ .ID }}">{{ T "settings.delete" }}</button>{{ end }}
+      </div>
+      {{ if .Errors }}<ul class="field-errors">{{ range .Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+    </fieldset>
+    {{ end }}
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">{{ T "settings.articles.save" }}</button>
+    </div>
+  </form>
+  {{ range .Names }}{{ if not .Uses }}
+  <form id="delete-{{ .ID }}" method="post" action="/settings/articles/{{ .ID }}/delete" hidden>{{ csrfField }}</form>
+  {{ end }}{{ end }}
+  {{ else }}
+  <p class="panel__empty">{{ T "settings.articles.empty" }}</p>
+  {{ end }}
+</section>
+
+<section class="panel" id="add" aria-labelledby="add-title">
+  <h2 class="panel__title" id="add-title">{{ T "settings.articles.add" }}</h2>
+  <form class="add-form" method="post" action="/settings/articles">
+    {{ csrfField }}
+    <div class="add-form__field add-form__field--name">
+      <label for="name">{{ T "settings.name" }}</label>
+      <input id="name" name="name" value="{{ .NewName.Name }}" required maxlength="100" placeholder="{{ T "settings.articles.placeholder" }}"
+        {{ if .NewName.Invalid }}aria-invalid="true" autofocus{{ end }}>
+    </div>
+    {{ if .Aisles }}
+    <div class="add-form__field">
+      <label for="aisle">{{ T "settings.articles.aisle" }}</label>
+      <select id="aisle" name="aisle">
+        <option value="">{{ T "settings.articles.none" }}</option>
+        {{ range .Aisles }}<option value="{{ .ID }}" {{ if eq .ID $.NewName.Aisle }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+      </select>
+    </div>
+    {{ end }}
+    <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
+    {{ if .NewName.Errors }}<ul class="field-errors" role="alert">{{ range .NewName.Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+  </form>
+</section>
+
+{{ else if eq .View "aisles" }}
+<section class="panel" aria-labelledby="aisles-title">
+  <h2 class="panel__title" id="aisles-title">{{ T "settings.tab.aisles" }}</h2>
+  <p class="panel__hint">{{ T "settings.aisles.hint" }}</p>
+  {{ if .Names }}
+  {{ with .SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
+  <form class="names" method="post" action="/settings/aisles/save">
+    {{ csrfField }}
+    {{ range .Names }}
+    <fieldset class="names__row {{ if .Invalid }}names__row--invalid{{ end }}" id="aisle-{{ .ID }}">
+      <legend class="visually-hidden">{{ .Name }}</legend>
+      <input type="hidden" name="id" value="{{ .ID }}">
+      <div class="names__field names__field--name">
+        <label class="visually-hidden" for="name_{{ .ID }}">{{ T "settings.name" }}</label>
+        <input id="name_{{ .ID }}" name="name_{{ .ID }}" value="{{ .Name }}" required maxlength="100" {{ if .Invalid }}aria-invalid="true"{{ end }}>
+      </div>
+      <div class="names__tools">
+        <button class="order-button" type="submit" form="move-{{ .ID }}" name="dir" value="up" aria-label="{{ .UpLabel }}" title="{{ .UpLabel }}" {{ if .IsFirst }}disabled{{ end }}>↑</button>
+        <button class="order-button" type="submit" form="move-{{ .ID }}" name="dir" value="down" aria-label="{{ .DownLabel }}" title="{{ .DownLabel }}" {{ if .IsLast }}disabled{{ end }}>↓</button>
+        <button class="link-button link-button--danger" type="submit" form="delete-{{ .ID }}">{{ T "settings.delete" }}</button>
+      </div>
+      {{ if .Errors }}<ul class="field-errors">{{ range .Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+    </fieldset>
+    {{ end }}
+    <div class="form-actions">
+      <button class="button button--primary" type="submit">{{ T "settings.aisles.save" }}</button>
+    </div>
+  </form>
+  {{ range .Names }}
+  <form id="move-{{ .ID }}" method="post" action="/settings/aisles/{{ .ID }}/move" hidden>{{ csrfField }}</form>
+  <form id="delete-{{ .ID }}" method="post" action="/settings/aisles/{{ .ID }}/delete" hidden>{{ csrfField }}</form>
+  {{ end }}
+  {{ else }}
+  <p class="panel__empty">{{ T "settings.aisles.empty" }}</p>
+  {{ end }}
+</section>
+
+<section class="panel" id="add" aria-labelledby="add-title">
+  <h2 class="panel__title" id="add-title">{{ T "settings.aisles.add" }}</h2>
+  <form class="add-form" method="post" action="/settings/aisles">
+    {{ csrfField }}
+    <div class="add-form__field add-form__field--name">
+      <label for="name">{{ T "settings.name" }}</label>
+      <input id="name" name="name" value="{{ .NewName.Name }}" required maxlength="100" placeholder="{{ T "settings.aisles.placeholder" }}"
+        {{ if .NewName.Invalid }}aria-invalid="true" autofocus{{ end }}>
+    </div>
+    <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
+    {{ if .NewName.Errors }}<ul class="field-errors" role="alert">{{ range .NewName.Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+  </form>
+</section>
+
+{{ else if eq .View "fixed" }}
+<p class="back"><a href="/settings/meals">{{ T "settings.fixed.back" }}</a></p>
+<section class="panel" aria-labelledby="fixed-title">
+  <h2 class="panel__title" id="fixed-title">{{ .Fixed.Title }}</h2>
+  <p class="panel__hint">{{ T "settings.fixed.hint" }}</p>
+  <form class="fixed-form" method="post" action="{{ .Fixed.Action }}">
+    {{ csrfField }}
+    <fieldset class="picker">
+      <legend class="visually-hidden">{{ .Fixed.Title }}</legend>
+      {{ range $i, $c := .Fixed.Choices }}
+      {{ if eq $i 1 }}<p class="picker__or">{{ T "home.or_compose" }}</p>{{ end }}
+      {{ $cur := index $.Fixed.Plate $c.Kind }}
+      <label class="picker__field">
+        <span>{{ $c.Label }}</span>
+        <select name="{{ $c.Key }}_id">
+          <option value="">{{ T "home.none" }}</option>
+          {{ range $c.Items }}<option value="{{ .ID }}" {{ if eq .ID $cur }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+        </select>
+      </label>
+      {{ end }}
+    </fieldset>
+    <div class="fixed-form__actions">
+      <button class="button button--primary" type="submit" name="action" value="set">{{ T "settings.fixed.save" }}</button>
+      {{ if .Fixed.IsSet }}<button class="button button--quiet" type="submit" name="action" value="clear">{{ T "settings.fixed.clear" }}</button>{{ end }}
+    </div>
+  </form>
+</section>
+
 {{ else }}
 <section class="panel" aria-labelledby="meals-title">
   <h2 class="panel__title" id="meals-title">{{ T "settings.tab.meals" }}</h2>
   <form class="meals-form" method="post" action="/settings/meals">
     {{ csrfField }}
-    <fieldset>
-      <legend class="panel__hint">{{ T "settings.meals_hint" }}</legend>
-      {{ range .Meals }}
-      <label class="check"><input type="checkbox" name="meal" value="{{ .Value }}" {{ if .Selected }}checked{{ end }}> {{ .Label }}</label>
+    <fieldset class="schedule">
+      <legend class="panel__hint">{{ T "settings.schedule.hint" }}</legend>
+      {{ range .Schedule }}
+      <div class="schedule__day" id="{{ .Anchor }}">
+        <span class="schedule__name">{{ .Label }}</span>
+        {{ range .Meals }}
+        <div class="schedule__meal">
+          <label class="check"><input type="checkbox" name="slot" value="{{ .Key }}" aria-label="{{ .CheckLabel }}" {{ if .Planned }}checked{{ end }}> {{ .Label }}</label>
+          <p class="schedule__fixed">
+            {{ if .FixedNames }}<span class="schedule__always">{{ T "settings.schedule.always" }}</span>
+            <span class="schedule__names">{{ range $i, $n := .FixedNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}</span>
+            {{ else }}{{ T "settings.schedule.drawn" }}{{ end }}
+          </p>
+          <a class="link-button" href="{{ .EditURL }}" aria-label="{{ .EditLabel }}">{{ if .FixedNames }}{{ T "settings.schedule.change" }}{{ else }}{{ T "settings.schedule.fix" }}{{ end }}</a>
+        </div>
+        {{ end }}
+      </div>
       {{ end }}
     </fieldset>
     {{ with .MealsErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"strconv"
-	"strings"
 	"time"
 
 	"leblanc.io/open-go-menu/internal/planner"
@@ -113,7 +112,6 @@ func (s *Store) ClearEntries(ctx context.Context, slots ...planner.Slot) error {
 
 const (
 	keyWeekStart     = "week_start"
-	keyMeals         = "meals"
 	keyComposedShare = "composed_share"
 )
 
@@ -152,35 +150,6 @@ func (s *Store) WeekStart(ctx context.Context) (time.Weekday, error) {
 // SetWeekStart saves the first day of the week.
 func (s *Store) SetWeekStart(ctx context.Context, d time.Weekday) error {
 	return s.setSetting(ctx, keyWeekStart, strconv.Itoa(int(d)))
-}
-
-// Meals returns the planned meals, in chronological order. Default: all.
-func (s *Store) Meals(ctx context.Context) ([]planner.Meal, error) {
-	v, ok, err := s.setting(ctx, keyMeals)
-	if err != nil || !ok {
-		return planner.Meals, err
-	}
-	var meals []planner.Meal
-	for _, m := range planner.Meals {
-		for _, part := range strings.Split(v, ",") {
-			if part == string(m) {
-				meals = append(meals, m)
-			}
-		}
-	}
-	if len(meals) == 0 {
-		return planner.Meals, nil
-	}
-	return meals, nil
-}
-
-// SetMeals saves the planned meals.
-func (s *Store) SetMeals(ctx context.Context, meals []planner.Meal) error {
-	parts := make([]string, len(meals))
-	for i, m := range meals {
-		parts[i] = string(m)
-	}
-	return s.setSetting(ctx, keyMeals, strings.Join(parts, ","))
 }
 
 // ComposedShare returns the share of composed meals, in percent (EF-15).

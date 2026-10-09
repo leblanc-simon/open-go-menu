@@ -1,0 +1,117 @@
+{{ define "content" }}
+{{ if .Creating }}
+<h1 class="page__title">{{ T "shopping.new_title" }}</h1>
+<section class="panel shopping-new">
+  {{ if .Replaces }}<p class="panel__hint">{{ T "shopping.replaces" }} <a href="/shopping">{{ T "shopping.back_to_list" }}</a></p>{{ end }}
+  {{ if .Proposal }}
+  <form method="post" action="/shopping">
+    {{ csrfField }}
+    <input type="hidden" name="from" value="{{ .ProposalFrom }}">
+    <input type="hidden" name="to" value="{{ .ProposalTo }}">
+    <p class="panel__hint">{{ T "shopping.proposal_hint" }}</p>
+    <button class="button button--primary button--large" type="submit">{{ .Proposal }}</button>
+  </form>
+  <p class="shopping-new__or">{{ T "shopping.or_dates" }}</p>
+  {{ else }}
+  <p class="panel__hint">{{ T "shopping.no_complete_week" }}</p>
+  {{ end }}
+  <form class="dates" method="post" action="/shopping">
+    {{ csrfField }}
+    <div class="dates__field">
+      <label for="from">{{ T "shopping.from" }}</label>
+      <input id="from" name="from" type="date" value="{{ .From }}" required {{ if .DatesErr }}aria-invalid="true" aria-describedby="dates-error"{{ end }}>
+    </div>
+    <div class="dates__field">
+      <label for="to">{{ T "shopping.to" }}</label>
+      <input id="to" name="to" type="date" value="{{ .To }}" required {{ if .DatesErr }}aria-invalid="true" aria-describedby="dates-error"{{ end }}>
+    </div>
+    <button class="button {{ if .Proposal }}button--quiet{{ else }}button--primary{{ end }}" type="submit">{{ T "shopping.create" }}</button>
+    {{ with .DatesErr }}<p class="form-error" id="dates-error" role="alert">{{ . }}</p>{{ end }}
+  </form>
+</section>
+
+{{ else }}
+<section class="shopping" data-in-place>
+  <header class="shopping__head">
+    <h1 class="page__title">{{ .Range }}</h1>
+    <a class="button button--quiet" href="/shopping/new">{{ T "shopping.new" }}</a>
+  </header>
+
+  {{ if .Missing }}
+  <div class="shopping__missing" role="note">
+    <p>{{ T "shopping.missing" }}</p>
+    <ul>{{ range .Missing }}<li>{{ . }}</li>{{ end }}</ul>
+  </div>
+  {{ end }}
+
+  {{ if .Empty }}<p class="panel__empty">{{ T "shopping.empty" }}</p>{{ end }}
+
+  {{ range .Groups }}
+  <section class="aisle" id="{{ .Anchor }}" aria-labelledby="{{ .Anchor }}-title">
+    <h2 class="aisle__title {{ if .NoAisle }}aisle__title--none{{ end }}" id="{{ .Anchor }}-title">{{ .Name }}</h2>
+    <ul class="lines">{{ range .Lines }}{{ template "line" . }}{{ end }}</ul>
+  </section>
+  {{ end }}
+
+  {{ if .Done }}
+  <section class="aisle aisle--done" id="done" aria-labelledby="done-title">
+    <h2 class="aisle__title" id="done-title">{{ T "shopping.done" }}</h2>
+    <ul class="lines">{{ range .Done }}{{ template "line" . }}{{ end }}</ul>
+  </section>
+  {{ end }}
+
+  <section class="panel extra" id="extra" aria-labelledby="extra-title">
+    <h2 class="panel__title" id="extra-title">{{ T "shopping.extra_title" }}</h2>
+    <form class="extra__form" method="post" action="/shopping/extras">
+      {{ csrfField }}
+      <div class="extra__field extra__field--name">
+        <label for="extra-name">{{ T "shopping.extra_name" }}</label>
+        <input id="extra-name" name="name" value="{{ .ExtraName }}" required maxlength="100" list="article-suggestions" autocomplete="off"
+          placeholder="{{ T "shopping.extra_placeholder" }}" {{ if .ExtraErr }}aria-invalid="true" aria-describedby="extra-error" autofocus{{ end }}>
+      </div>
+      <div class="extra__field">
+        <label for="extra-quantity">{{ T "shopping.quantity" }}</label>
+        <input id="extra-quantity" name="quantity" value="{{ .ExtraQuantity }}" maxlength="50" autocomplete="off">
+      </div>
+      <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
+      {{ with .ExtraErr }}<p class="form-error" id="extra-error" role="alert">{{ . }}</p>{{ end }}
+      <datalist id="article-suggestions">{{ range .Suggestions }}<option value="{{ . }}"></option>{{ end }}</datalist>
+    </form>
+  </section>
+</section>
+{{ end }}
+{{ end }}
+
+{{ define "line" }}
+{{ $l := . }}
+<li class="line {{ if $l.Checked }}line--checked{{ end }}">
+  <form class="line__tick" method="post" action="{{ $l.Action }}">
+    {{ csrfField }}
+    <input type="hidden" name="anchor" value="{{ $l.Anchor }}">
+    <input type="hidden" name="needs" value="{{ $l.Key }}">
+    <button class="tick" type="submit" name="action" value="{{ if $l.Checked }}untick{{ else }}tick{{ end }}"
+      aria-pressed="{{ if $l.Checked }}true{{ else }}false{{ end }}" aria-label="{{ $l.TickLabel }}"></button>
+  </form>
+  <div class="line__body">
+    <p class="line__name">{{ $l.Name }}</p>
+    <ul class="line__needs">
+      {{ range $l.Needs }}<li>{{ with .Quantity }}<span class="line__quantity">{{ . }}</span> {{ end }}<span class="line__why">{{ .Text }}</span></li>{{ end }}
+    </ul>
+    {{ if or $l.Aisles $l.IsExtra }}
+    <form class="line__tools" method="post" action="{{ $l.Action }}">
+      {{ csrfField }}
+      <input type="hidden" name="anchor" value="{{ $l.Anchor }}">
+      {{ if $l.Aisles }}
+      <label class="visually-hidden" for="aisle-{{ $l.ID }}">{{ $l.AisleLabel }}</label>
+      <select id="aisle-{{ $l.ID }}" name="aisle" required>
+        <option value="">{{ T "shopping.choose_aisle" }}</option>
+        {{ range $l.Aisles }}<option value="{{ .ID }}">{{ .Name }}</option>{{ end }}
+      </select>
+      <button class="link-button" type="submit" name="action" value="aisle">{{ T "shopping.file" }}</button>
+      {{ end }}
+      {{ if $l.IsExtra }}<button class="link-button link-button--danger" type="submit" name="action" value="remove" aria-label="{{ $l.RemoveLabel }}">{{ T "shopping.remove" }}</button>{{ end }}
+    </form>
+    {{ end }}
+  </div>
+</li>
+{{ end }}
