@@ -41,7 +41,6 @@ type shoppingView struct {
 	Groups        []groupView
 	Done          []lineView
 	Empty         bool
-	Aisles        []store.Aisle
 	Suggestions   []string
 	ExtraName     string
 	ExtraQuantity string
@@ -235,6 +234,11 @@ func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from,
 		a.fail(w, r, err)
 		return
 	}
+	choices, err := a.Store.AislesByName(ctx)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 
 	// A meal no longer planned is hidden from the week: nothing to buy for
 	// it (EF-13).
@@ -254,7 +258,6 @@ func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from,
 		page:        a.newPage(w, r, loc, "shopping", "shopping.title"),
 		Range:       loc.T("shopping.range", map[string]any{"From": dayMonth(loc, from), "To": dayMonthYear(loc, to)}),
 		Empty:       list.IsEmpty(),
-		Aisles:      aisles,
 		Suggestions: suggestions,
 	}
 	if typed != nil {
@@ -275,7 +278,7 @@ func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from,
 		for _, l := range g.Lines {
 			lv := lineOf(loc, l, gv.Anchor)
 			if gv.NoAisle {
-				lv.Aisles = aisles
+				lv.Aisles = choices
 			}
 			gv.Lines = append(gv.Lines, lv)
 		}

@@ -1119,6 +1119,24 @@ input[type="checkbox"] {
   }
 }
 
+/* Shown by the script on precise pointers, to drag a row. */
+.drag-handle {
+  padding: 0.25rem 0.35rem;
+  color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+
+  &:hover {
+    color: var(--ink);
+  }
+}
+
+.names .names__row.names__row--dragging {
+  opacity: 0.4;
+}
+
 .order-button {
   min-width: 2.5rem;
   min-height: 2.5rem;

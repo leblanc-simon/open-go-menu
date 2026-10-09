@@ -78,7 +78,7 @@ sur `SIGINT` / `SIGTERM` (15 s au plus).
 | POST | `/settings/items/{id}/ingredients/save` | `saveQuantities` | Quantités des ingrédients |
 | POST | `/settings/items/{id}/ingredients/{article}/delete` | `removeIngredient` | Retrait d'un ingrédient |
 | GET, POST | `/settings/articles`, `…/save`, `…/{id}/delete` | `catalog.go` | Onglet Articles (EF-21) |
-| GET, POST | `/settings/aisles`, `…/save`, `…/{id}/move`, `…/{id}/delete` | `catalog.go` | Onglet Rayons (EF-20) |
+| GET, POST | `/settings/aisles`, `…/save`, `…/order`, `…/{id}/move`, `…/{id}/delete` | `catalog.go` | Onglet Rayons (EF-20) ; `order` reçoit l'ordre complet du glisser-déposer |
 | GET | `/shopping`, `/shopping/new` | `shopping`, `newShopping` | Liste en cours, choix de la période (EF-22) |
 | POST | `/shopping` | `startShopping` | Nouvelle liste (`from`, `to`) |
 | POST | `/shopping/extras` | `addExtra` | Ajout à la main (EF-23) |
@@ -217,6 +217,7 @@ confort, sans dépendance, et reçoit ses libellés déjà traduits par des attr
 |---|---|
 | Le sélecteur du jour de début s'envoie seul (`data-autosubmit`) | Bouton « Appliquer » |
 | Les formulaires de la semaine sont postés en `fetch` ; la page renvoyée remplace `<main>`, en gardant le repas concerné au même endroit à l'écran et le focus sur le même bouton. La confirmation s'affiche en bas d'écran (`flash--toast`) au lieu de décaler la page | Rechargement complet, ancre sur le jour |
+| Glisser-déposer des rayons par leur poignée ⠿ (pointeur précis uniquement) : la ligne suit le pointeur, l'ordre complet est envoyé au lâcher par le formulaire `#aisle-order` ; lâcher hors de la liste ou Échap rétablit l'ordre | Boutons ↑/↓ de chaque rayon |
 | Les cases et formulaires de la liste de courses (section `[data-in-place]`, comme la semaine) sont postés de même, à position de défilement constante | Rechargement complet, ancre sur le rayon |
 | Glisser-déposer d'un repas sur un autre (pointeur précis uniquement) | Menu « Déplacer vers… » de chaque repas |
 | « Déplacer » prend le repas : les autres repas deviennent des boutons « Mettre ici » / « Échanger ici », une barre en bas propose « Annuler » (Échap aussi) | Même menu « Déplacer vers… » |

@@ -119,6 +119,7 @@ settings:
     placeholder: Fruit and vegetables
     up_label: "Move “{{.Name}}” up"
     down_label: "Move “{{.Name}}” down"
+    drag: Drag to reorder
   schedule:
     hint: >-
       Tick the meals to plan, day by day. A fixed meal comes back every week

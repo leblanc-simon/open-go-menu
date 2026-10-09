@@ -81,7 +81,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | EF-15 | Onglet Repas : **part de repas composés**, de 0 à 100 %. Défaut : 50 %. | O |
 | EF-18 | Onglet Repas : chaque repas de la semaine peut recevoir un **repas fixe** (un plat complet, ou des composants), choisi sur une page dédiée ; on peut le retirer pour revenir au tirage. | I |
 | EF-19 | Chaque plat complet a une **fiche d'ingrédients** : ajout (nom, quantité libre ≤ 50 caractères, rayon facultatif), modification groupée des quantités, retrait, ordre de saisie. Les articles et les féculents, viandes/poissons et légumes vivants sont proposés à la saisie ; un ingrédient saisi n'est jamais ajouté à ces listes. Un ingrédient est unique (insensible à la casse) dans une recette ; l'article est partagé entre recettes et reste au catalogue quand plus aucune recette ne l'utilise. | I |
-| EF-20 | Onglet **Rayons** : ajout, renommage groupé, suppression (ses articles restent sans rayon), ordre modifiable par boutons ↑/↓. | I |
+| EF-20 | Onglet **Rayons** : ajout, renommage groupé, suppression (ses articles restent sans rayon), ordre modifiable par boutons ↑/↓, et sur ordinateur par glisser-déposer. | I |
 | EF-21 | Onglet **Articles** : nom et rayon de chaque article, modifiables en place et enregistrés en une fois ; ajout ; suppression, refusée pour un ingrédient d'une recette. | I |
 
 ### 3.4 Liste de courses
@@ -114,7 +114,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | Réf | Exigence |
 |---|---|
 | EI-01 | Interface responsive, utilisable sur téléphone (cas d'usage principal : en cuisine, au marché). |
-| EI-02 | Fonctionne **sans JavaScript** ; le JS n'apporte que du confort : envoi automatique du sélecteur de jour de début, actions sur la semaine sans rechargement ni déplacement de la page, glisser-déposer et déplacement par toucher des repas. |
+| EI-02 | Fonctionne **sans JavaScript** ; le JS n'apporte que du confort : envoi automatique du sélecteur de jour de début, actions sur la semaine sans rechargement ni déplacement de la page, glisser-déposer et déplacement par toucher des repas, glisser-déposer des rayons. |
 | EI-03 | Accessibilité : libellés de formulaires, focus clavier visible, contrastes AA, `prefers-reduced-motion` respecté. |
 | EI-04 | Toute action mutante suit le schéma POST → redirection → GET ; le résultat est confirmé par un message flash. |
 | EI-05 | Les erreurs de saisie réaffichent le formulaire avec les valeurs saisies et un message par champ fautif. |
@@ -193,6 +193,7 @@ Routes :
 | POST | `/settings/articles/save`, `/settings/articles/{id}/delete` | Enregistrement groupé, suppression |
 | GET, POST | `/settings/aisles` | Onglet Rayons ; ajout |
 | POST | `/settings/aisles/save`, `/settings/aisles/{id}/move`, `/settings/aisles/{id}/delete` | Renommage groupé, ordre (`dir=up|down`), suppression |
+| POST | `/settings/aisles/order` | Ordre complet après un glisser-déposer (`id` répété, chaque rayon une fois) |
 | GET | `/shopping` | Liste de courses en cours, ou choix de la période s'il n'y en a pas |
 | GET | `/shopping/new` | Choix de la période d'une nouvelle liste |
 | POST | `/shopping` | Crée la liste (`from`, `to`) |

@@ -78,7 +78,7 @@ func (a *App) articlesPage(w http.ResponseWriter, r *http.Request, status int, r
 		a.fail(w, r, err)
 		return
 	}
-	aisles, err := a.Store.Aisles(ctx)
+	aisles, err := a.Store.AislesByName(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -285,6 +285,33 @@ func (a *App) moveAisle(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 	default:
 		redirect(w, r, "/settings/aisles#aisle-"+strconv.FormatInt(id, 10), "flash.aisle_moved")
+	}
+}
+
+// orderAisles saves the order of the aisles dropped by the script (EF-20).
+func (a *App) orderAisles(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
+		return
+	}
+	var ids []int64
+	for _, raw := range r.PostForm["id"] {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
+			return
+		}
+		ids = append(ids, id)
+	}
+	err := a.Store.SetAisleOrder(r.Context(), ids)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		// A list changed meanwhile, in another tab.
+		a.renderError(w, r, http.StatusBadRequest, "error.bad_request")
+	case err != nil:
+		a.fail(w, r, err)
+	default:
+		redirect(w, r, "/settings/aisles", "flash.aisle_moved")
 	}
 }
 

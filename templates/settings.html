@@ -223,10 +223,10 @@
   <p class="panel__hint">{{ T "settings.aisles.hint" }}</p>
   {{ if .Names }}
   {{ with .SaveErr }}<p class="form-error" role="alert">{{ . }}</p>{{ end }}
-  <form class="names" method="post" action="/settings/aisles/save">
+  <form class="names" method="post" action="/settings/aisles/save" data-sortable="aisle-order">
     {{ csrfField }}
     {{ range .Names }}
-    <fieldset class="names__row {{ if .Invalid }}names__row--invalid{{ end }}" id="aisle-{{ .ID }}">
+    <fieldset class="names__row {{ if .Invalid }}names__row--invalid{{ end }}" id="aisle-{{ .ID }}" data-sort-id="{{ .ID }}">
       <legend class="visually-hidden">{{ .Name }}</legend>
       <input type="hidden" name="id" value="{{ .ID }}">
       <div class="names__field names__field--name">
@@ -234,6 +234,7 @@
         <input id="name_{{ .ID }}" name="name_{{ .ID }}" value="{{ .Name }}" required maxlength="100" {{ if .Invalid }}aria-invalid="true"{{ end }}>
       </div>
       <div class="names__tools">
+        <span class="drag-handle" title="{{ T "settings.aisles.drag" }}" aria-hidden="true" hidden>⠿</span>
         <button class="order-button" type="submit" form="move-{{ .ID }}" name="dir" value="up" aria-label="{{ .UpLabel }}" title="{{ .UpLabel }}" {{ if .IsFirst }}disabled{{ end }}>↑</button>
         <button class="order-button" type="submit" form="move-{{ .ID }}" name="dir" value="down" aria-label="{{ .DownLabel }}" title="{{ .DownLabel }}" {{ if .IsLast }}disabled{{ end }}>↓</button>
         <button class="link-button link-button--danger" type="submit" form="delete-{{ .ID }}">{{ T "settings.delete" }}</button>
@@ -245,6 +246,8 @@
       <button class="button button--primary" type="submit">{{ T "settings.aisles.save" }}</button>
     </div>
   </form>
+  {{/* Filled and sent by the script after a drag and drop. */}}
+  <form id="aisle-order" method="post" action="/settings/aisles/order" data-in-place hidden>{{ csrfField }}</form>
   {{ range .Names }}
   <form id="move-{{ .ID }}" method="post" action="/settings/aisles/{{ .ID }}/move" hidden>{{ csrfField }}</form>
   <form id="delete-{{ .ID }}" method="post" action="/settings/aisles/{{ .ID }}/delete" hidden>{{ csrfField }}</form>

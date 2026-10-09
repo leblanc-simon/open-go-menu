@@ -119,6 +119,7 @@ settings:
     placeholder: Fruits et légumes
     up_label: "Monter « {{.Name}} »"
     down_label: "Descendre « {{.Name}} »"
+    drag: Glisser pour changer l'ordre
   schedule:
     hint: >-
       Cochez les repas à prévoir, jour par jour. Un repas fixe revient chaque

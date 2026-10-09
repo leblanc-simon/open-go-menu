@@ -397,6 +397,22 @@ func TestAislesAndArticles(t *testing.T) {
 	if got := order(); got != "Boucherie,Boissons,Fruits et légumes" {
 		t.Fatalf("renamed = %s", got)
 	}
+	byName, _ := s.AislesByName(ctx)
+	if byName[0].Name != "Boissons" || byName[2].Name != "Fruits et légumes" {
+		t.Fatalf("by name = %+v", byName)
+	}
+	// The whole order at once, every aisle exactly once.
+	if err := s.SetAisleOrder(ctx, []int64{meat, veg, drinks}); err != nil {
+		t.Fatal(err)
+	}
+	if got := order(); got != "Fruits et légumes,Boucherie,Boissons" {
+		t.Fatalf("set order = %s", got)
+	}
+	for _, bad := range [][]int64{{meat, veg}, {meat, veg, veg}, {meat, veg, 999}} {
+		if err := s.SetAisleOrder(ctx, bad); !errors.Is(err, ErrNotFound) {
+			t.Errorf("%v: err = %v", bad, err)
+		}
+	}
 
 	beer, _ := s.CreateArticle(ctx, "Bière", drinks)
 	if _, err := s.CreateArticle(ctx, "bière", 0); !errors.Is(err, ErrDuplicateName) {

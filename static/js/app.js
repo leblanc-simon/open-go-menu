@@ -3,7 +3,7 @@
 const finePointer = window.matchMedia("(pointer: fine)").matches;
 
 // enhance sets up what the listeners below cannot delegate, on the page and
-// again on each week the script swaps in.
+// again on each page the script swaps in.
 function enhance(root) {
   root.querySelectorAll("[data-autosubmit-fallback]").forEach((button) => {
     button.hidden = true;
@@ -12,6 +12,10 @@ function enhance(root) {
     root.querySelectorAll(".meal[data-movable]").forEach((meal) => {
       meal.draggable = true;
       meal.classList.add("meal--draggable");
+    });
+    root.querySelectorAll("[data-sortable] .drag-handle").forEach((handle) => {
+      handle.hidden = false;
+      handle.draggable = true;
     });
   }
 }
@@ -151,6 +155,94 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     stopCarrying();
   }
+});
+
+// ── Ordering a list by drag and drop (the aisles), on precise pointers ─────
+// The row follows the pointer through the list; once dropped, the new order
+// fills the form named by data-sortable, sent like the week's forms. The
+// up and down buttons stay, for the keyboard and without script.
+
+let sorting = null;
+let sortStart = [];
+
+function sortRows(list) {
+  return [...list.querySelectorAll("[data-sort-id]")];
+}
+
+document.addEventListener("dragstart", (event) => {
+  const handle = event.target.closest?.("[data-sortable] .drag-handle");
+  if (!handle) {
+    return;
+  }
+  sorting = handle.closest("[data-sort-id]");
+  sortStart = sortRows(sorting.closest("[data-sortable]"));
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", sorting.dataset.sortId);
+  event.dataTransfer.setDragImage(sorting, 16, 16);
+  sorting.classList.add("names__row--dragging");
+});
+
+// sortTarget returns the row of the dragged one's list under the pointer.
+function sortTarget(event) {
+  const row = sorting && event.target.closest?.("[data-sort-id]");
+  return row && row.parentElement === sorting.parentElement ? row : null;
+}
+
+// A row moved under the pointer becomes the target: accepting dragenter as
+// well as dragover keeps the drop allowed.
+document.addEventListener("dragenter", (event) => {
+  if (sortTarget(event)) {
+    event.preventDefault();
+  }
+});
+
+document.addEventListener("dragover", (event) => {
+  const row = sortTarget(event);
+  if (!row) {
+    return;
+  }
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  if (row !== sorting) {
+    const box = row.getBoundingClientRect();
+    const after = event.clientY > box.top + box.height / 2;
+    row.parentElement.insertBefore(sorting, after ? row.nextSibling : row);
+  }
+});
+
+document.addEventListener("drop", (event) => {
+  if (sorting && event.target.closest?.("[data-sortable]")) {
+    event.preventDefault();
+  }
+});
+
+document.addEventListener("dragend", (event) => {
+  if (!sorting) {
+    return;
+  }
+  const list = sorting.closest("[data-sortable]");
+  sorting.classList.remove("names__row--dragging");
+  sorting = null;
+  const rows = sortRows(list);
+  if (event.dataTransfer.dropEffect === "none") {
+    // Dropped outside the list or cancelled with Escape: put it back.
+    const anchor = rows[rows.length - 1].nextSibling;
+    sortStart.forEach((row) => list.insertBefore(row, anchor));
+    return;
+  }
+  if (rows.every((row, i) => row === sortStart[i])) {
+    return;
+  }
+  const form = document.getElementById(list.dataset.sortable);
+  form.querySelectorAll("input[name='id']").forEach((input) => input.remove());
+  rows.forEach((row) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "id";
+    input.value = row.dataset.sortId;
+    form.append(input);
+  });
+  form.requestSubmit();
 });
 
 // ── Forms of the week and the shopping list without reloading ─────────────

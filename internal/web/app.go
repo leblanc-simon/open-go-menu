@@ -80,6 +80,7 @@ func (a *App) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings/aisles", a.aislesSettings)
 	mux.HandleFunc("POST /settings/aisles", a.addAisle)
 	mux.HandleFunc("POST /settings/aisles/save", a.saveAisles)
+	mux.HandleFunc("POST /settings/aisles/order", a.orderAisles)
 	mux.HandleFunc("POST /settings/aisles/{id}/move", a.moveAisle)
 	mux.HandleFunc("POST /settings/aisles/{id}/delete", a.deleteAisle)
 	mux.HandleFunc("GET /shopping", a.shopping)

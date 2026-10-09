@@ -222,6 +222,14 @@ func (s *Store) Aisles(ctx context.Context) ([]Aisle, error) {
 	return out, rows.Err()
 }
 
+// AislesByName returns the aisles sorted by name, for the choice of an
+// aisle; Aisles keeps the order of the walk through the shop.
+func (s *Store) AislesByName(ctx context.Context) ([]Aisle, error) {
+	aisles, err := s.Aisles(ctx)
+	sortByName(aisles, func(a Aisle) string { return a.Name })
+	return aisles, err
+}
+
 // CreateAisle adds an aisle at the end.
 func (s *Store) CreateAisle(ctx context.Context, name string) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
@@ -284,6 +292,36 @@ func (s *Store) MoveAisle(ctx context.Context, id int64, up bool) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
 		for pos, a := range aisles {
 			if _, err := tx.ExecContext(ctx, `UPDATE aisles SET position = ? WHERE id = ?`, pos+1, a.ID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// SetAisleOrder puts the aisles in the given order, which must name every
+// aisle once; ErrNotFound otherwise.
+func (s *Store) SetAisleOrder(ctx context.Context, ids []int64) error {
+	aisles, err := s.Aisles(ctx)
+	if err != nil {
+		return err
+	}
+	known := map[int64]bool{}
+	for _, a := range aisles {
+		known[a.ID] = true
+	}
+	if len(ids) != len(aisles) {
+		return ErrNotFound
+	}
+	for _, id := range ids {
+		if !known[id] {
+			return ErrNotFound
+		}
+		delete(known, id) // twice the same aisle is refused too
+	}
+	return s.tx(ctx, func(tx *sql.Tx) error {
+		for pos, id := range ids {
+			if _, err := tx.ExecContext(ctx, `UPDATE aisles SET position = ? WHERE id = ?`, pos+1, id); err != nil {
 				return err
 			}
 		}

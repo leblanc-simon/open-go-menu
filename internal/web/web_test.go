@@ -572,6 +572,19 @@ func TestAislesAndArticlesTabs(t *testing.T) {
 	if !strings.Contains(body, `aria-label="Monter « Légumes »" title="Monter « Légumes »" disabled`) {
 		t.Error("the first aisle can go up")
 	}
+	// The order dropped by the script, every aisle once.
+	order := url.Values{"id": {itoa(aisles[2].ID), itoa(aisles[0].ID), itoa(aisles[1].ID)}}
+	if _, res := c.post("/settings/aisles/order", order); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("order: status %d", res.StatusCode)
+	}
+	if got, _ := c.store.Aisles(ctx); got[0].ID != aisles[2].ID {
+		t.Errorf("order = %+v", got)
+	}
+	if _, res := c.post("/settings/aisles/order", url.Values{"id": {itoa(aisles[0].ID)}}); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("partial order: status %d", res.StatusCode)
+	}
+	c.post("/settings/aisles/order", url.Values{"id": {itoa(aisles[0].ID), itoa(aisles[1].ID), itoa(aisles[2].ID)}})
+	aisles, _ = c.store.Aisles(ctx)
 	form := url.Values{"id": {itoa(aisles[0].ID), itoa(aisles[1].ID)}}
 	form.Set("name_"+itoa(aisles[0].ID), "Primeur")
 	form.Set("name_"+itoa(aisles[1].ID), "primeur")
@@ -589,6 +602,12 @@ func TestAislesAndArticlesTabs(t *testing.T) {
 	if _, res := c.post("/settings/articles/save", form); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save articles: status %d", res.StatusCode)
 	}
+	// The aisle choices are sorted by name, not in the walk order (Légumes
+	// first).
+	body, _ = c.get("/settings/articles")
+	if i, j := strings.Index(body, ">Boissons</option>"), strings.Index(body, ">Légumes</option>"); i < 0 || j < 0 || i > j {
+		t.Errorf("aisle choices not sorted by name: %d %d", i, j)
+	}
 	// An ingredient may not be deleted; an aisle gone frees its articles.
 	c.addDishes("Lasagnes")
 	dishes, _ := c.store.Items(ctx, planner.Dish)
@@ -601,9 +620,11 @@ func TestAislesAndArticlesTabs(t *testing.T) {
 	if len(articles) != 2 || articles[1].Name != "Shampoing" || articles[1].Aisle != 0 {
 		t.Fatalf("after deletes: %+v", articles)
 	}
-	if body, _ := c.get("/settings/articles"); !strings.Contains(body, "Dans 1 recette") {
+	body, _ = c.get("/settings/articles")
+	if !strings.Contains(body, "Dans 1 recette") {
 		t.Error("uses not shown")
 	}
+
 }
 
 func TestShoppingList(t *testing.T) {

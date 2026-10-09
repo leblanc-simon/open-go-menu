@@ -590,7 +590,7 @@ func (a *App) dishPage(w http.ResponseWriter, r *http.Request, dish store.Item, 
 		a.fail(w, r, err)
 		return
 	}
-	aisles, err := a.Store.Aisles(ctx)
+	aisles, err := a.Store.AislesByName(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
