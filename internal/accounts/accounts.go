@@ -160,6 +160,23 @@ func hashCode(code string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// CheckInvite tells whether an invitation can still be used, without
+// consuming it: ErrInvite if not. It lets a signup refuse a wrong code before
+// hashing the password; CreateFamily still consumes it atomically.
+func (s *Store) CheckInvite(ctx context.Context, invite string, now time.Time) error {
+	var n int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM invites WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?`,
+		hashCode(invite), format(now)).Scan(&n)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrInvite
+	}
+	return nil
+}
+
 // CreateFamily creates a family: its login, with an already hashed password,
 // and the name of its database file. A non-empty invite is consumed in the
 // same transaction; ErrInvite if it cannot be.
@@ -298,11 +315,31 @@ func (s *Store) SetPassword(ctx context.Context, userID int64, passwordHash stri
 // DeleteFamily removes the account of a family: its login, its sessions. The
 // caller removes its database file.
 func (s *Store) DeleteFamily(ctx context.Context, userID int64) error {
+	return s.deleteFamily(ctx, userID, nil)
+}
+
+// DeleteInactiveFamily removes the account of a family, as DeleteFamily, only
+// if it has had no visit since before: a visit during a purge saves it.
+// ErrNotFound if it has been seen since.
+func (s *Store) DeleteInactiveFamily(ctx context.Context, userID int64, before time.Time) error {
+	return s.deleteFamily(ctx, userID, &before)
+}
+
+func (s *Store) deleteFamily(ctx context.Context, userID int64, before *time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if before != nil {
+		res, err := tx.ExecContext(ctx, `DELETE FROM families WHERE user_id = ? AND last_active_at < ?`, userID, format(*before))
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return ErrNotFound
+		}
+	}
 	for _, q := range []string{
 		`DELETE FROM sessions WHERE user_id = ?`,
 		`DELETE FROM families WHERE user_id = ?`,
@@ -327,16 +364,23 @@ const inviteAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 // CreateInvite returns a new single-use invitation code, valid for ttl. Only
 // its hash is kept.
 func (s *Store) CreateInvite(ctx context.Context, ttl time.Duration, now time.Time) (string, error) {
-	b := make([]byte, 12)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
+	// Bytes beyond the last whole multiple of the alphabet are drawn again,
+	// so that every character is as likely.
+	const limit = 256 / len(inviteAlphabet) * len(inviteAlphabet)
 	var code strings.Builder
-	for i, c := range b {
-		if i > 0 && i%4 == 0 {
+	b := make([]byte, 1)
+	for n := 0; n < 12; {
+		if _, err := rand.Read(b); err != nil {
+			return "", err
+		}
+		if int(b[0]) >= limit {
+			continue
+		}
+		if n > 0 && n%4 == 0 {
 			code.WriteByte('-')
 		}
-		code.WriteByte(inviteAlphabet[int(c)%len(inviteAlphabet)])
+		code.WriteByte(inviteAlphabet[int(b[0])%len(inviteAlphabet)])
+		n++
 	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (?, ?, ?)`,
 		hashCode(code.String()), format(now), format(now.Add(ttl)))

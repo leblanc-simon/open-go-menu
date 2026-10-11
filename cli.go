@@ -148,17 +148,24 @@ func command(cfg config.Config, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
+		deleted := 0
 		for _, f := range list {
 			if *dry {
 				fmt.Fprintf(out, "would delete %s (last visit %s)\n", f.Login, f.LastActive.Local().Format("2006-01-02"))
 				continue
 			}
-			if err := accts.DeleteFamily(ctx, f.UserID); err != nil {
+			// A family seen since the listing is kept.
+			err := accts.DeleteInactiveFamily(ctx, f.UserID, before)
+			if errors.Is(err, accounts.ErrNotFound) {
+				continue
+			}
+			if err != nil {
 				return err
 			}
 			if err := fams.Remove(f.File); err != nil {
 				return err
 			}
+			deleted++
 			fmt.Fprintf(out, "deleted %s (last visit %s)\n", f.Login, f.LastActive.Local().Format("2006-01-02"))
 		}
 		if !*dry {
@@ -166,7 +173,7 @@ func command(cfg config.Config, args []string, out io.Writer) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "%d families deleted, %d expired sessions deleted\n", len(list), n)
+			fmt.Fprintf(out, "%d families deleted, %d expired sessions deleted\n", deleted, n)
 		}
 
 	default:
@@ -204,8 +211,14 @@ func importDatabase(ctx context.Context, src, dest string) error {
 		return err
 	}
 	defer db.Close()
-	var items int
-	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations`).Scan(&items); err != nil {
+	// The first migration of the menu, not any schema_migrations table: the
+	// accounts database has one too.
+	var done int
+	err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM schema_migrations WHERE name = 'migrations/001_init.sql'`).Scan(&done)
+	if err == nil && done == 0 {
+		err = errors.New("no menu migration")
+	}
+	if err != nil {
 		return fmt.Errorf("%s: not an OpenGoMenu database: %w", src, err)
 	}
 	if _, err := db.ExecContext(ctx, `VACUUM INTO ?`, dest); err != nil {

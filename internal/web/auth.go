@@ -12,6 +12,7 @@ import (
 
 	"leblanc.io/open-go-menu/internal/accounts"
 	"leblanc.io/open-go-menu/internal/config"
+	"leblanc.io/open-go-menu/internal/families"
 	"leblanc.io/open-go-menu/internal/store"
 )
 
@@ -55,20 +56,21 @@ func (a *App) protect(h http.HandlerFunc) http.Handler {
 		ctx := r.Context()
 		user := authx.UserFrom(r)
 		fam, err := a.Accounts.FamilyOf(ctx, user.ID)
-		if errors.Is(err, accounts.ErrNotFound) {
-			// A login without family: nothing to show it.
+		var st *store.Store
+		release := func() {}
+		if err == nil {
+			if err := a.Accounts.Touch(ctx, user.ID, a.Now()); err != nil {
+				a.Logger.Warn("activity not recorded", "err", err)
+			}
+			st, release, err = a.Families.Acquire(ctx, fam.File)
+		}
+		if errors.Is(err, accounts.ErrNotFound) || errors.Is(err, families.ErrGone) {
+			// A login without family, or one deleted meanwhile: nothing to
+			// show it.
 			a.Auth.Logout(w, r)
 			redirect(w, r, "/login", "")
 			return
 		}
-		if err != nil {
-			a.fail(w, r, err)
-			return
-		}
-		if err := a.Accounts.Touch(ctx, user.ID, a.Now()); err != nil {
-			a.Logger.Warn("activity not recorded", "err", err)
-		}
-		st, release, err := a.Families.Acquire(ctx, fam.File)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -88,6 +90,7 @@ func (a *App) protect(h http.HandlerFunc) http.Handler {
 type loginGuard struct {
 	mu    sync.Mutex
 	fails map[string][]time.Time
+	swept time.Time // last sweep of the stale names
 }
 
 func newLoginGuard() *loginGuard {
@@ -118,8 +121,10 @@ func (g *loginGuard) blocked(login string, now time.Time) bool {
 func (g *loginGuard) fail(login string, now time.Time) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	// Names tried at random must not grow the map forever.
-	if len(g.fails) > 10000 {
+	// Names tried at random must not grow the map forever; the sweep walks
+	// the whole map, hence at most once a window.
+	if len(g.fails) > 10000 && now.Sub(g.swept) >= loginWindow {
+		g.swept = now
 		for l := range g.fails {
 			g.recent(l, now)
 		}
@@ -267,6 +272,16 @@ func (a *App) signup(w http.ResponseWriter, r *http.Request) {
 		msg = loc.T("validation.invite_invalid")
 	default:
 		msg = a.checkPassword(r, r.PostFormValue("password"), r.PostFormValue("password_confirm"))
+	}
+	// A wrong code is refused before bcrypt, whose cost it would not deserve.
+	if msg == "" && invite != "" {
+		switch err := a.Accounts.CheckInvite(ctx, invite, a.Now()); {
+		case errors.Is(err, accounts.ErrInvite):
+			msg = loc.T("validation.invite_invalid")
+		case err != nil:
+			a.fail(w, r, err)
+			return
+		}
 	}
 	if msg == "" {
 		hash, err := authx.HashPassword(r.PostFormValue("password"), a.Options.BcryptCost)

@@ -1185,6 +1185,11 @@ input[type="checkbox"] {
   .auth__switch {
     margin-top: 1.5rem;
   }
+
+  .auth__hint {
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
 }
 
 .auth__form {
@@ -1208,15 +1213,10 @@ input[type="checkbox"] {
     align-items: center;
     gap: 0.5rem;
   }
-}
 
-.auth__hint {
-  font-size: 0.875rem;
-  color: var(--muted);
-}
-
-.auth__form + .auth__hint {
-  margin-top: 0.75rem;
+  & + .auth__hint {
+    margin-top: 0.75rem;
+  }
 }
 
 .panel.panel--danger {

@@ -103,6 +103,15 @@ func TestInvites(t *testing.T) {
 	if _, err := s.CreateFamily(ctx, "a", "h", "WRONG-CODE", now); !errors.Is(err, ErrInvite) {
 		t.Fatalf("wrong code: %v", err)
 	}
+	if err := s.CheckInvite(ctx, "WRONG-CODE", now); !errors.Is(err, ErrInvite) {
+		t.Fatalf("check wrong code: %v", err)
+	}
+	// Checking does not consume.
+	for range 2 {
+		if err := s.CheckInvite(ctx, code, now); err != nil {
+			t.Fatalf("check valid code: %v", err)
+		}
+	}
 	// Typed loosely: lower case, without dashes.
 	if _, err := s.CreateFamily(ctx, "a", "h", " "+NormalizeInvite(code)[:4]+" "+lower(NormalizeInvite(code)[4:]), now); err != nil {
 		t.Fatalf("valid code: %v", err)
@@ -110,9 +119,15 @@ func TestInvites(t *testing.T) {
 	if _, err := s.CreateFamily(ctx, "b", "h", code, now); !errors.Is(err, ErrInvite) {
 		t.Fatalf("code used twice: %v", err)
 	}
+	if err := s.CheckInvite(ctx, code, now); !errors.Is(err, ErrInvite) {
+		t.Fatalf("check used code: %v", err)
+	}
 	late, _ := s.CreateInvite(ctx, time.Hour, now)
 	if _, err := s.CreateFamily(ctx, "c", "h", late, now.Add(2*time.Hour)); !errors.Is(err, ErrInvite) {
 		t.Fatalf("expired code: %v", err)
+	}
+	if err := s.CheckInvite(ctx, late, now.Add(2*time.Hour)); !errors.Is(err, ErrInvite) {
+		t.Fatalf("check expired code: %v", err)
 	}
 	// A refused invitation creates nothing.
 	if _, err := s.FamilyByLogin(ctx, "c"); !errors.Is(err, ErrNotFound) {
