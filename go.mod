@@ -5,7 +5,7 @@ go 1.26.8
 require (
 	golang.org/x/text v0.44.0
 	gopkg.in/yaml.v3 v3.0.1
-	leblanc.io/open-go-base v1.4.2
+	leblanc.io/open-go-base v1.4.4
 	modernc.org/sqlite v1.62.0
 )
 
@@ -25,7 +25,7 @@ require (
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
-	modernc.org/libc v1.80.1 // indirect
+	modernc.org/libc v1.81.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 	olympos.io/encoding/edn v0.0.0-20201019073823-d3554ca0b0a3 // indirect
