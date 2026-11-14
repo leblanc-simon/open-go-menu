@@ -45,14 +45,14 @@ func TestItemLifecycle(t *testing.T) {
 
 	// Swapping names in one save must work.
 	err = s.UpdateItems(ctx, planner.Dish, []Item{
-		{ID: a, Name: "Gratin", Weight: 2, Seasonal: [4]int{1, 0, 3, 4}},
-		{ID: b, Name: "Lasagnes", Weight: 5, Seasonal: [4]int{5, 5, 5, 5}},
+		{ID: a, Name: "Gratin", Weight: 2, Seasonal: [4]int{1, -3, 3, 4}},
+		{ID: b, Name: "Lasagnes", Weight: 5},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	items, _ := s.Items(ctx, planner.Dish)
-	if len(items) != 2 || items[0].ID != a || items[0].Seasonal[planner.Summer] != 0 {
+	if len(items) != 2 || items[0].ID != a || items[0].Seasonal[planner.Summer] != -3 {
 		t.Fatalf("items = %+v", items)
 	}
 
@@ -181,7 +181,7 @@ func TestMigrationKeepsV1Data(t *testing.T) {
 		string(v1),
 		`CREATE TABLE schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`,
 		`INSERT INTO schema_migrations VALUES ('migrations/001_init.sql', '2026-10-08T00:00:00Z')`,
-		`INSERT INTO dishes (id, name, weight_summer, created_at) VALUES (7, 'Raclette', 0, '2026-10-08T00:00:00Z')`,
+		`INSERT INTO dishes (id, name, weight_summer, weight_winter, created_at) VALUES (7, 'Raclette', 0, 9, '2026-10-08T00:00:00Z')`,
 		`INSERT INTO plan_entries VALUES ('2026-10-08', 'dinner', 7)`,
 	} {
 		if _, err := db.ExecContext(ctx, q); err != nil {
@@ -196,7 +196,8 @@ func TestMigrationKeepsV1Data(t *testing.T) {
 	}
 	defer s.Close()
 	it, err := s.Item(ctx, 7)
-	if err != nil || it.Kind != planner.Dish || it.Name != "Raclette" || it.Seasonal[planner.Summer] != 0 {
+	if err != nil || it.Kind != planner.Dish || it.Name != "Raclette" ||
+		it.Seasonal != [4]int{0, -10, 0, 4} { // 006: seasonal weights become bonuses
 		t.Fatalf("item = %+v, %v", it, err)
 	}
 	day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)

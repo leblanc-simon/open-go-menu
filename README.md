@@ -10,12 +10,15 @@ d'un poisson et d'un légume.
   « Générer » ; chaque repas peut ensuite être relancé, choisi ou vidé, et chaque
   composant d'un repas composé relancé seul (↻).
 - **Paramètres** : un onglet par liste (plats complets, féculents, viandes et
-  poissons, légumes) avec poids général et poids par saison (0 à 10), ajout et
+  poissons, légumes) avec poids général (0 à 10) et bonus ou malus par saison
+  (-10 à +10), ajout et
   suppression ; un onglet Repas pour les repas à planifier et la part de repas
   composés (0 à 100 %).
 
-Les chances d'un élément un jour donné valent `poids général × poids de la saison`
-(saisons météorologiques : hiver = déc.–fév., etc.). Un élément ne revient pas dans
+Les chances d'un élément un jour donné valent `poids général + bonus de la saison`
+(saisons météorologiques : hiver = déc.–fév., etc.) : le poids général prime, la
+saison ajoute ou retire des points ; un poids général à 0 ou un total nul écarte
+l'élément. Un élément ne revient pas dans
 la même semaine tant qu'il reste d'autres candidats dans sa liste.
 
 Le cahier des charges complet est dans [`specs/cahier-des-charges.md`](specs/cahier-des-charges.md).

@@ -130,7 +130,8 @@ Package pur, sans E/S, entièrement couvert par les tests.
 - **`Drawer.Draw`** : pour chaque repas visé, choisit la forme (composé avec la
   probabilité `ComposedShare`, repli sur l'autre forme si l'une n'a aucun candidat
   ce jour-là, RG-08), puis tire chaque élément avec un poids effectif
-  `poids général × poids de la saison` (RG-01, RG-02). Un élément ne revient pas
+  `poids général + bonus de la saison`, jamais négatif, nul si le poids général
+  l'est (RG-01, RG-02). Un élément ne revient pas
   dans la semaine tant qu'il reste des candidats dans sa liste ; ensuite le tirage
   évite l'élément du repas précédent (RG-03, RG-04).
 - **`DrawComponent`** relance un seul composant d'un repas composé (EF-09).

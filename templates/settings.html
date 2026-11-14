@@ -38,7 +38,7 @@
       {{ range $i, $s := $.Seasons }}
       <div class="field field--weight field--{{ $s.Key }}">
         <label for="{{ $s.Key }}_{{ $row.ID }}">{{ $s.Label }}</label>
-        <input id="{{ $s.Key }}_{{ $row.ID }}" name="{{ $s.Key }}_{{ $row.ID }}" value="{{ index $row.Seasonal $i }}" type="number" min="0" max="10" step="1" inputmode="numeric" required
+        <input id="{{ $s.Key }}_{{ $row.ID }}" name="{{ $s.Key }}_{{ $row.ID }}" value="{{ index $row.Seasonal $i }}" type="number" min="-{{ $.MaxSeasonal }}" max="{{ $.MaxSeasonal }}" step="1" required
           {{ if index $row.Invalid $s.Key }}aria-invalid="true"{{ end }}>
       </div>
       {{ end }}
@@ -78,7 +78,7 @@
     {{ range $i, $s := .Seasons }}
     <div class="field field--weight field--{{ $s.Key }}">
       <label for="{{ $s.Key }}">{{ $s.Label }}</label>
-      <input id="{{ $s.Key }}" name="{{ $s.Key }}" value="{{ index $.New.Seasonal $i }}" type="number" min="0" max="10" step="1" inputmode="numeric" required
+      <input id="{{ $s.Key }}" name="{{ $s.Key }}" value="{{ index $.New.Seasonal $i }}" type="number" min="-{{ $.MaxSeasonal }}" max="{{ $.MaxSeasonal }}" step="1" required
         {{ if index $.New.Invalid $s.Key }}aria-invalid="true"{{ end }}>
     </div>
     {{ end }}

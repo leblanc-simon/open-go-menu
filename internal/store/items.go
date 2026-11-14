@@ -11,7 +11,8 @@ import (
 	"leblanc.io/open-go-menu/internal/planner"
 )
 
-// DefaultWeight is the weight given to a new item, general and seasonal.
+// DefaultWeight is the general weight given to a new item; its seasonal
+// bonuses start at 0, neutral.
 const DefaultWeight = 5
 
 // Item is an entry of one of the lists: a full dish or a component.
@@ -23,13 +24,13 @@ type Item struct {
 	Seasonal [4]int // indexed by planner.Season
 }
 
-// NewItem returns an item of the given kind named name, with default weights.
+// NewItem returns an item of the given kind named name, with the default
+// weight and no seasonal bonus.
 func NewItem(kind planner.Kind, name string) Item {
 	return Item{
-		Kind:     kind,
-		Name:     name,
-		Weight:   DefaultWeight,
-		Seasonal: [4]int{DefaultWeight, DefaultWeight, DefaultWeight, DefaultWeight},
+		Kind:   kind,
+		Name:   name,
+		Weight: DefaultWeight,
 	}
 }
 

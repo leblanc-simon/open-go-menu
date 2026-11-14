@@ -168,7 +168,7 @@ func (c *client) post(path string, form url.Values) (string, *http.Response) {
 }
 
 func dishValues(name string, weights ...string) url.Values {
-	w := []string{"5", "5", "5", "5", "5"}
+	w := []string{"5", "0", "0", "0", "0"}
 	copy(w, weights)
 	return url.Values{"name": {name}, "weight": {w[0]}, "spring": {w[1]}, "summer": {w[2]}, "autumn": {w[3]}, "winter": {w[4]}}
 }
@@ -382,7 +382,7 @@ func TestSettingsValidation(t *testing.T) {
 	if res.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(body, "déjà dans cette liste") {
 		t.Errorf("duplicate: status %d", res.StatusCode)
 	}
-	body, res = c.post("/settings/dishes", dishValues("Pizza", "5", "5", "11"))
+	body, res = c.post("/settings/dishes", dishValues("Pizza", "5", "0", "11"))
 	if res.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(body, `value="Pizza"`) {
 		t.Errorf("EI-05: invalid weight not redisplayed (status %d)", res.StatusCode)
 	}
@@ -390,16 +390,16 @@ func TestSettingsValidation(t *testing.T) {
 		t.Errorf("blank name: status %d", res.StatusCode)
 	}
 
-	// Bulk save: summer weight to 0.
+	// Bulk save: summer malus that keeps the dish out (RG-01).
 	dishes, _ := c.store.Items(context.Background(), planner.Dish)
 	id := itoa(dishes[0].ID)
 	form := url.Values{"id": {id}, "name_" + id: {"Lasagnes"}, "weight_" + id: {"8"},
-		"spring_" + id: {"5"}, "summer_" + id: {"0"}, "autumn_" + id: {"7"}, "winter_" + id: {"10"}}
+		"spring_" + id: {"5"}, "summer_" + id: {"-10"}, "autumn_" + id: {"+2"}, "winter_" + id: {"0"}}
 	if _, res = c.post("/settings/dishes/save", form); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("save: status %d", res.StatusCode)
 	}
 	dishes, _ = c.store.Items(context.Background(), planner.Dish)
-	if d := dishes[0]; d.Weight != 8 || d.Seasonal != [4]int{5, 0, 7, 10} {
+	if d := dishes[0]; d.Weight != 8 || d.Seasonal != [4]int{5, -10, 2, 0} {
 		t.Errorf("saved = %+v", d)
 	}
 

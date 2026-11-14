@@ -26,7 +26,7 @@ de tirage, EI interface, ENF non fonctionnelles, SEC sécurité, TR recette) et 
   Quatre sortes d'éléments (`Kind` : `Dish` plat complet, `Starch`, `Protein`, `Vegetable`) ;
   une assiette (`Plate`, tableau indexé par `Kind`, 0 = rien) est soit un plat complet, soit
   des composants. `Drawer.Draw` choisit la forme selon `ComposedShare` (repli sur l'autre forme
-  si l'une n'a pas de candidat), puis tire chaque élément (poids général × poids saisonnier, pas
+  si l'une n'a pas de candidat), puis tire chaque élément (poids général + bonus saisonnier de -10 à +10, pas
   de doublon par liste tant qu'il reste des candidats, puis repli en évitant le repas
   précédent). `DrawComponent` relance un seul composant.
 - `internal/shopping` : logique **pure** de la liste de courses — regroupe les besoins

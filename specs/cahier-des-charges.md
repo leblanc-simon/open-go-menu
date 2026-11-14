@@ -12,7 +12,7 @@ pour une version ultérieure.
 Un foyer veut arrêter de se demander « qu'est-ce qu'on mange ? ». Il entretient une
 liste de menus (au départ un simple nom : « Gratin dauphinois », « Salade niçoise »),
 indique pour chacun s'il l'aime plus ou moins (poids général) et à quelle saison il
-convient (poids par saison), puis laisse l'application proposer la semaine.
+convient plus ou moins (bonus ou malus par saison), puis laisse l'application proposer la semaine.
 
 Un repas est soit un **plat complet** (« Lasagnes »), soit un **repas composé**
 d'un féculent, d'une viande ou d'un poisson et d'un légume (« Riz, saumon, haricots
@@ -42,7 +42,7 @@ récupération de mot de passe par e-mail, double authentification, API publique
 | Semaine | 7 jours consécutifs commençant au jour de début de semaine paramétré. |
 | Planning | Les assiettes affectées aux couples (jour, repas). |
 | Poids général | Préférence globale pour un élément, entier de 0 à 10. |
-| Poids saisonnier | Adéquation d'un élément à une saison, entier de 0 à 10, un par saison. |
+| Bonus saisonnier | Adéquation d'un élément à une saison : entier de -10 à +10, un par saison, ajouté au poids général (malus quand il est négatif). 0 est neutre. |
 | Part de repas composés | Probabilité (0–100 %) qu'un repas tiré soit composé plutôt qu'un plat complet. |
 | Repas de la semaine | Un repas indépendamment de la date : « mercredi midi ». Type `Weekly`. |
 | Repas fixe | Assiette servie chaque semaine sur un repas de la semaine, au lieu d'un tirage. |
@@ -79,8 +79,8 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 
 | Réf | Exigence | Prio |
 |---|---|---|
-| EF-10 | Chaque onglet de liste affiche ses éléments avec, pour chacun, son nom, son poids général et ses 4 poids saisonniers, **modifiables en place** et enregistrés en une fois. | O |
-| EF-11 | Formulaire d'**ajout** d'un élément dans la liste de l'onglet : nom obligatoire, poids pré-remplis à la valeur par défaut (5). | O |
+| EF-10 | Chaque onglet de liste affiche ses éléments avec, pour chacun, son nom, son poids général et ses 4 bonus saisonniers, **modifiables en place** et enregistrés en une fois. | O |
+| EF-11 | Formulaire d'**ajout** d'un élément dans la liste de l'onglet : nom obligatoire, poids général pré-rempli à 5, bonus saisonniers à 0. | O |
 | EF-12 | **Suppression** d'un élément. Elle est logique : il disparaît de la liste et des tirages, mais reste affiché dans les plannings passés. | I |
 | EF-13 | Onglet Repas : choix des **repas planifiés jour par jour** (midi et/ou soir pour chaque jour de la semaine ; au moins un repas dans la semaine, un jour peut n'en avoir aucun). Défaut : midi et soir tous les jours. | I |
 | EF-14 | Le nom d'un élément est unique (insensible à la casse) parmi les éléments non supprimés **de la même liste**, 1 à 100 caractères. | O |
@@ -114,7 +114,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 
 | Réf | Règle |
 |---|---|
-| RG-01 | Poids effectif d'un élément pour un jour J = `poids général × poids de la saison de J`. Un poids effectif nul exclut l'élément ce jour-là. |
+| RG-01 | Poids effectif d'un élément pour un jour J = `poids général + bonus de la saison de J`, ramené à 0 s'il est négatif. Le poids général prime : à 0, aucun bonus ne fait revenir l'élément ; un malus de -10 l'écarte de la saison quel que soit son poids général. Un poids effectif nul exclut l'élément ce jour-là. |
 | RG-02 | Chaque élément est tiré dans sa liste avec une probabilité proportionnelle à son poids effectif. |
 | RG-03 | Un même élément n'apparaît pas deux fois dans la semaine **tant qu'il reste des candidats dans sa liste** ; les repas déjà remplis de la semaine comptent. Chaque liste est suivie séparément. |
 | RG-04 | Si une liste est épuisée, le tirage autorise la répétition, en évitant si possible l'élément du repas immédiatement précédent. |
@@ -160,7 +160,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | SEC-02 | En-têtes : `Content-Security-Policy` stricte (`default-src 'self'`, pas d'inline), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`. |
 | SEC-03 | Limitation de débit par IP (`ratelimit`), IP réelle résolue uniquement via les proxys de confiance. |
 | SEC-04 | Requêtes SQL paramétrées exclusivement ; échappement HTML par `html/template`. |
-| SEC-05 | Validation serveur de toutes les entrées (bornes des poids, longueur des noms, dates, repas connus). |
+| SEC-05 | Validation serveur de toutes les entrées (bornes des poids et des bonus, longueur des noms, dates, repas connus). |
 | SEC-06 | **Isolement des familles** : la famille d'une requête vient uniquement de sa session, jamais de l'URL ni d'un champ ; elle désigne la seule base ouverte pour la requête. Le nom d'un fichier de famille est aléatoire (32 caractères hexadécimaux), vérifié avant toute ouverture. |
 | SEC-07 | **Mots de passe** hachés par `authx` (bcrypt, coût `auth.bcrypt_cost`, pré-hachage SHA-256), au moins 10 caractères. Contre la force brute, en plus de la limite par IP : 5 échecs en 15 minutes sur un identifiant le bloquent jusqu'à la fin de la fenêtre (429). Le temps de réponse d'un identifiant inconnu est égalisé (`authx`). |
 | SEC-08 | **Session** : jeton aléatoire de 256 bits en base, cookie `HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS (`auth.cookie_secure`). Déconnexion côté serveur ; `Clear-Site-Data: "cache", "storage"` à la déconnexion et à la suppression, pour qu'une autre famille du même appareil ne voie pas les pages gardées hors ligne. Codes d'invitation conservés sous forme de SHA-256 seulement, à usage unique, expirant. |
@@ -250,6 +250,7 @@ Base de chaque famille, `families/<file>.db` :
 ```sql
 items       (id, kind, name, weight, weight_spring, weight_summer, weight_autumn,
              weight_winter, created_at, deleted_at)
+             -- weight 0..10 ; weight_<saison> : bonus -10..+10 (RG-01)
              -- kind : dish | starch | protein | vegetable
              -- nom unique par (kind, name) parmi les éléments non supprimés
 plan_items  (day TEXT 'AAAA-MM-JJ', meal TEXT, kind TEXT, item_id → items.id,
@@ -275,7 +276,10 @@ convertit `plan_entries` en `plan_items` sans perte. La migration `003` crée le
 tables d'ingrédients ; la `004` crée `weekly_meals` à partir de l'ancien réglage
 `meals` (appliqué à chaque jour), puis le supprime, et crée `fixed_items`. La `005`
 renomme `ingredients` en `articles` (et `ingredient_id` en `article_id`), ajoute
-rayons, quantités et tables de la liste de courses, sans perte.
+rayons, quantités et tables de la liste de courses, sans perte. La `006` convertit
+les poids saisonniers (0 à 10, multipliés) en bonus (-10 à +10, ajoutés) : 5
+devient 0, chaque cran est conservé (`poids - 5`), et 0 — jamais dans la saison —
+devient -10.
 
 ## 10. Recette
 
@@ -283,7 +287,7 @@ rayons, quantités et tables de la liste de courses, sans perte.
 |---|---|
 | TR-01 | Base vide → l'accueil invite à ajouter des menus ; « Générer » informe qu'aucun menu n'est disponible. |
 | TR-02 | 20 menus, semaine vide → « Générer » remplit 14 repas sans doublon. |
-| TR-03 | Un menu au poids d'été 0 n'est jamais tiré pour un jour de juillet. |
+| TR-03 | Un menu au malus d'été -10 n'est jamais tiré pour un jour de juillet ; un menu au poids général 0 ne l'est jamais, même avec un bonus de saison. |
 | TR-04 | Changer le jour de début de lundi à samedi conserve les menus déjà tirés aux mêmes dates ; « Compléter » remplit les seuls trous. |
 | TR-05 | Relancer un repas change son menu sans toucher aux autres. |
 | TR-06 | Supprimer un menu planifié : il disparaît du paramétrage, reste visible dans le planning. |

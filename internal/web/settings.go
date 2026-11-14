@@ -41,13 +41,14 @@ type settingsView struct {
 	View string // list, meals, fixed, dish, articles or aisles
 
 	// The tab of a list.
-	Kind    string
-	ListURL string
-	Seasons []seasonColumn
-	Rows    []itemForm
-	New     itemForm
-	SaveErr string
-	Weight  string // default weight, shown in the explanation
+	Kind        string
+	ListURL     string
+	Seasons     []seasonColumn
+	Rows        []itemForm
+	New         itemForm
+	SaveErr     string
+	Weight      string // default weight, shown in the explanation
+	MaxSeasonal int    // bound of the seasonal bonuses, either way
 
 	// The meals tab.
 	Schedule []scheduleDay
@@ -171,17 +172,18 @@ func parseItemForm(r *http.Request, kind planner.Kind, id int64, loc *i18n.Local
 		f.fail("name", loc.T("validation.name_too_long", map[string]any{"Max": maxNameLength}))
 	}
 
-	weight := func(field, raw, label string) int {
-		n, err := strconv.Atoi(raw)
-		if err != nil || n < 0 || n > maxWeight {
-			f.fail(field, loc.T("validation.weight_range", map[string]any{"Field": label, "Max": maxWeight}))
-		}
-		return n
+	var err error
+	if it.Weight, err = strconv.Atoi(f.Weight); err != nil || it.Weight < 0 || it.Weight > maxWeight {
+		f.fail("weight", loc.T("validation.weight_range", map[string]any{"Field": loc.T("settings.weight"), "Max": maxWeight}))
 	}
-	it.Weight = weight("weight", f.Weight, loc.T("settings.weight"))
+	// Seasons add to the general weight or take from it (RG-01).
 	for _, s := range planner.Seasons {
 		f.Seasonal[s] = strings.TrimSpace(r.PostFormValue(fieldName(s.Key(), id)))
-		it.Seasonal[s] = weight(s.Key(), f.Seasonal[s], loc.T("season."+s.Key()))
+		n, err := strconv.Atoi(f.Seasonal[s])
+		if err != nil || n < -planner.MaxSeasonal || n > planner.MaxSeasonal {
+			f.fail(s.Key(), loc.T("validation.seasonal_range", map[string]any{"Field": loc.T("season." + s.Key()), "Max": planner.MaxSeasonal}))
+		}
+		it.Seasonal[s] = n
 	}
 	return f, it, len(f.Errors) == 0
 }
@@ -212,6 +214,7 @@ func (a *App) listView(w http.ResponseWriter, r *http.Request, loc *i18n.Localiz
 	v.ListURL = listURL(kind)
 	v.Rows = rows
 	v.Weight = strconv.Itoa(store.DefaultWeight)
+	v.MaxSeasonal = planner.MaxSeasonal
 	for _, s := range planner.Seasons {
 		v.Seasons = append(v.Seasons, seasonColumn{Key: s.Key(), Label: loc.T("season." + s.Key())})
 	}
