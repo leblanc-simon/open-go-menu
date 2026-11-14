@@ -5,22 +5,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ .Title }} · {{ T "app.name" }}</title>
-  <link rel="icon" href="/static/opengomenu-logo.svg" type="image/svg+xml">
+  <link rel="icon" href="{{ asset "opengomenu-logo.svg" }}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
   <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
   <meta name="theme-color" content="#276749" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#111a15" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-title" content="{{ T "app.name" }}">
-  <link rel="stylesheet" href="/static/css/main.css">
-  <script src="/static/js/app.js" defer></script>
+  <link rel="stylesheet" href="{{ asset "css/main.css" }}">
+  <script src="{{ asset "js/app.js" }}" defer></script>
 </head>
-<body data-offline="{{ T "app.offline" }}">
+<body data-offline="{{ T "app.offline" }}" data-offline-ticks="{{ T "app.offline_ticks" }}" data-stale="{{ T "app.stale" }}" data-reload="{{ T "app.reload" }}">
   <a class="skip-link" href="#main">{{ T "nav.skip" }}</a>
   <header class="masthead">
     <a class="masthead__brand" href="/">
       <picture>
-        <source srcset="/static/opengomenu-logo-entete-sombre.svg" media="(prefers-color-scheme: dark)">
-        <img src="/static/opengomenu-logo-entete.svg" alt="{{ T "app.name" }}" width="1180" height="360">
+        <source srcset="{{ asset "opengomenu-logo-entete-sombre.svg" }}" media="(prefers-color-scheme: dark)">
+        <img src="{{ asset "opengomenu-logo-entete.svg" }}" alt="{{ T "app.name" }}" width="1180" height="360">
       </picture>
     </a>
     {{ if .Family }}

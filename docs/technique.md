@@ -130,7 +130,8 @@ Package pur, sans E/S, entièrement couvert par les tests.
 - **`Drawer.Draw`** : pour chaque repas visé, choisit la forme (composé avec la
   probabilité `ComposedShare`, repli sur l'autre forme si l'une n'a aucun candidat
   ce jour-là, RG-08), puis tire chaque élément avec un poids effectif
-  `poids général × poids de la saison` (RG-01, RG-02). Un élément ne revient pas
+  `poids général + bonus de la saison`, jamais négatif, nul si le poids général
+  l'est (RG-01, RG-02). Un élément ne revient pas
   dans la semaine tant qu'il reste des candidats dans sa liste ; ensuite le tirage
   évite l'élément du repas précédent (RG-03, RG-04).
 - **`DrawComponent`** relance un seul composant d'un repas composé (EF-09).
@@ -258,13 +259,49 @@ sur un envoi classique du formulaire, en y recopiant le bouton pressé.
   `apple-touch-icon.png` (fond plein, dessin dans la zone sûre), à partir de
   `static/opengomenu-logo-maskable.svg`. Pour les régénérer :
   `inkscape --export-type=png --export-width=512 -o static/icons/icon-512.png static/opengomenu-logo.svg`.
-- **Service worker** `static/sw.js`, servi en `/sw.js` pour couvrir tout le site :
-  réseau d'abord pour toutes les requêtes GET de l'origine, copie mise en cache à
-  chaque réponse 200, cache utilisé seulement si le réseau échoue. En ligne, rien ne
-  change donc, même après une mise à jour du binaire. Les POST ne passent pas par
-  le cache.
-- **Hors ligne**, `app.js` affiche un bandeau (`data-offline` sur `<body>`) et
-  bloque l'envoi des formulaires, qui finiraient sur la page d'erreur du navigateur.
+- **Fichiers statiques versionnés** : les gabarits les citent par `{{ asset "…" }}`,
+  qui ajoute `?v=<empreinte>` (`web.HashFS`, condensé de `static/` calculé au
+  démarrage). Une URL versionnée ne change jamais : servie avec
+  `Cache-Control: immutable`, gardée par le service worker.
+- **Service worker** `static/sw.js`, servi en `/sw.js` pour couvrir tout le site,
+  **hors ligne d'abord** :
+  - fichiers statiques versionnés : depuis le cache dès qu'ils y sont (les versions
+    précédentes du même fichier sont supprimées) ;
+  - pages : réseau, tant qu'il répond en moins de 2,5 s ; au-delà, ou sans réseau,
+    la copie enregistrée s'affiche aussitôt. La réponse du réseau, quand elle
+    arrive, remplace la copie et la page en est prévenue (message `updated`) : le
+    bandeau « Réseau lent » propose alors la version à jour. Au chargement, la page
+    demande (`hello`) si elle vient du cache ;
+  - après un formulaire envoyé sans `fetch` (message `fresh`), la page suivante
+    attend le réseau : elle doit montrer le résultat de l'action ;
+  - les pages connectées demandent (`warm`, au plus toutes les 10 minutes) que la
+    semaine et la liste de courses soient enregistrées, même non visitées.
+  Les POST ne passent pas par le cache.
+- **Liste de courses hors ligne d'abord** : cocher une ligne la déplace aussitôt
+  (dans « Dans le panier » ou dans son rayon, à son rang `data-rank`) ; tous les
+  rayons sont rendus, masqués quand ils sont vides, pour qu'une ligne décochée
+  retrouve le sien (`data-group`). Le changement va dans une file d'envoi
+  (`localStorage`, `opengomenu-outbox`, la dernière action par ligne compte),
+  envoyée dans l'ordre dès que possible (au retour du réseau, au retour sur
+  l'onglet, toutes les 30 s après un échec) ; une coche refusée (4xx : liste
+  remplacée, article disparu) est abandonnée. Toute page de la liste affichée
+  entre-temps, copie du cache comprise, reçoit les coches en attente.
+- **Hors ligne**, `app.js` affiche un bandeau (`data-offline` sur `<body>`, plus
+  `data-offline-ticks` quand des coches attendent) et bloque l'envoi des autres
+  formulaires, qui finiraient sur la page d'erreur du navigateur.
+- **Suggestions de saisie** (`data-autocomplete` sur un champ relié à un
+  `<datalist>`) : le script remplace la liste native par une liste accessible
+  (`combobox`/`listbox`), qui trouve les noms sans tenir compte de la casse ni des
+  accents. Sur l'ajout d'un élément ou d'un article (`data-autocomplete="existing"`),
+  les suggestions sont les entrées existantes : en choisir une mène à sa ligne, et
+  un nom proche (accents, casse, pluriel) est signalé. Sans JS, le `<datalist>`
+  natif reste.
+- **Doublons** : en plus de l'index `NOCASE` (ASCII seulement), le stockage
+  compare les noms par la collation Unicode au niveau primaire (`store.SameName` :
+  ni casse, ni accents) : « pates » est refusé à côté de « Pâtes » dans une même
+  liste ou au catalogue, et un ingrédient ou un ajout saisi « creme fraiche »
+  reprend l'article « Crème fraîche ». Un renommage n'est refusé que s'il crée le
+  doublon, pas pour des doublons déjà là.
 
 CSS : nesting natif, modificateurs BEM écrits `&.bloc--modif` (le gabarit, ou le
 script, porte les deux classes), jetons de couleur sur `:root`, mode sombre par

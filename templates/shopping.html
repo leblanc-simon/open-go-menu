@@ -47,14 +47,14 @@
   {{ if .Empty }}<p class="panel__empty">{{ T "shopping.empty" }}</p>{{ end }}
 
   {{ range .Groups }}
-  <section class="aisle" id="{{ .Anchor }}" aria-labelledby="{{ .Anchor }}-title">
+  <section class="aisle" id="{{ .Anchor }}" aria-labelledby="{{ .Anchor }}-title" {{ if not .Lines }}hidden{{ end }}>
     <h2 class="aisle__title {{ if .NoAisle }}aisle__title--none{{ end }}" id="{{ .Anchor }}-title">{{ .Name }}</h2>
     <ul class="lines">{{ range .Lines }}{{ template "line" . }}{{ end }}</ul>
   </section>
   {{ end }}
 
-  {{ if .Done }}
-  <section class="aisle aisle--done" id="done" aria-labelledby="done-title">
+  {{ if not .Empty }}
+  <section class="aisle aisle--done" id="done" aria-labelledby="done-title" {{ if not .Done }}hidden{{ end }}>
     <h2 class="aisle__title" id="done-title">{{ T "shopping.done" }}</h2>
     <ul class="lines">{{ range .Done }}{{ template "line" . }}{{ end }}</ul>
   </section>
@@ -66,7 +66,7 @@
       {{ csrfField }}
       <div class="extra__field extra__field--name">
         <label for="extra-name">{{ T "shopping.extra_name" }}</label>
-        <input id="extra-name" name="name" value="{{ .ExtraName }}" required maxlength="100" list="article-suggestions" autocomplete="off"
+        <input id="extra-name" name="name" value="{{ .ExtraName }}" required maxlength="100" list="article-suggestions" autocomplete="off" data-autocomplete
           placeholder="{{ T "shopping.extra_placeholder" }}" {{ if .ExtraErr }}aria-invalid="true" aria-describedby="extra-error" autofocus{{ end }}>
       </div>
       <div class="extra__field">
@@ -84,13 +84,14 @@
 
 {{ define "line" }}
 {{ $l := . }}
-<li class="line {{ if $l.Checked }}line--checked{{ end }}">
-  <form class="line__tick" method="post" action="{{ $l.Action }}">
+<li class="line {{ if $l.Checked }}line--checked{{ end }}" data-group="{{ $l.Group }}" data-rank="{{ $l.Rank }}">
+  <form class="line__tick" method="post" action="{{ $l.Action }}" data-tick>
     {{ csrfField }}
     <input type="hidden" name="anchor" value="{{ $l.Anchor }}">
     <input type="hidden" name="needs" value="{{ $l.Key }}">
     <button class="tick" type="submit" name="action" value="{{ if $l.Checked }}untick{{ else }}tick{{ end }}"
-      aria-pressed="{{ if $l.Checked }}true{{ else }}false{{ end }}" aria-label="{{ $l.TickLabel }}"></button>
+      aria-pressed="{{ if $l.Checked }}true{{ else }}false{{ end }}" aria-label="{{ if $l.Checked }}{{ $l.UntickLabel }}{{ else }}{{ $l.TickLabel }}{{ end }}"
+      data-tick-label="{{ $l.TickLabel }}" data-untick-label="{{ $l.UntickLabel }}"></button>
   </form>
   <div class="line__body">
     <p class="line__name">{{ $l.Name }}</p>

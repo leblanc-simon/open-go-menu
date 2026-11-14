@@ -45,14 +45,14 @@ func TestItemLifecycle(t *testing.T) {
 
 	// Swapping names in one save must work.
 	err = s.UpdateItems(ctx, planner.Dish, []Item{
-		{ID: a, Name: "Gratin", Weight: 2, Seasonal: [4]int{1, 0, 3, 4}},
-		{ID: b, Name: "Lasagnes", Weight: 5, Seasonal: [4]int{5, 5, 5, 5}},
+		{ID: a, Name: "Gratin", Weight: 2, Seasonal: [4]int{1, -3, 3, 4}},
+		{ID: b, Name: "Lasagnes", Weight: 5},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	items, _ := s.Items(ctx, planner.Dish)
-	if len(items) != 2 || items[0].ID != a || items[0].Seasonal[planner.Summer] != 0 {
+	if len(items) != 2 || items[0].ID != a || items[0].Seasonal[planner.Summer] != -3 {
 		t.Fatalf("items = %+v", items)
 	}
 
@@ -181,7 +181,7 @@ func TestMigrationKeepsV1Data(t *testing.T) {
 		string(v1),
 		`CREATE TABLE schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)`,
 		`INSERT INTO schema_migrations VALUES ('migrations/001_init.sql', '2026-10-08T00:00:00Z')`,
-		`INSERT INTO dishes (id, name, weight_summer, created_at) VALUES (7, 'Raclette', 0, '2026-10-08T00:00:00Z')`,
+		`INSERT INTO dishes (id, name, weight_summer, weight_winter, created_at) VALUES (7, 'Raclette', 0, 9, '2026-10-08T00:00:00Z')`,
 		`INSERT INTO plan_entries VALUES ('2026-10-08', 'dinner', 7)`,
 	} {
 		if _, err := db.ExecContext(ctx, q); err != nil {
@@ -196,7 +196,8 @@ func TestMigrationKeepsV1Data(t *testing.T) {
 	}
 	defer s.Close()
 	it, err := s.Item(ctx, 7)
-	if err != nil || it.Kind != planner.Dish || it.Name != "Raclette" || it.Seasonal[planner.Summer] != 0 {
+	if err != nil || it.Kind != planner.Dish || it.Name != "Raclette" ||
+		it.Seasonal != [4]int{0, -10, 0, 4} { // 006: seasonal weights become bonuses
 		t.Fatalf("item = %+v, %v", it, err)
 	}
 	day := time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)
@@ -553,5 +554,62 @@ func TestMigrationKeepsIngredients(t *testing.T) {
 	// The foreign key follows the renamed table.
 	if err := s.DeleteArticle(ctx, 3); !errors.Is(err, ErrInUse) {
 		t.Fatalf("delete: err = %v", err)
+	}
+}
+
+// Names differing only by case or accents are duplicates; a typed name finds
+// the article whatever its accents.
+func TestLooseNames(t *testing.T) {
+	ctx := context.Background()
+	s := open(t)
+	pates, err := s.CreateItem(ctx, NewItem(planner.Starch, "Pâtes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateItem(ctx, NewItem(planner.Starch, "PATES")); !errors.Is(err, ErrDuplicateName) {
+		t.Fatalf("create PATES: err = %v", err)
+	}
+	if _, err := s.CreateItem(ctx, NewItem(planner.Dish, "pates")); err != nil {
+		t.Fatalf("another list: err = %v", err)
+	}
+	riz, err := s.CreateItem(ctx, NewItem(planner.Starch, "Riz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.UpdateItems(ctx, planner.Starch, []Item{{ID: pates, Name: "Pâtes", Weight: 5}, {ID: riz, Name: "pates", Weight: 5}})
+	if !errors.Is(err, ErrDuplicateName) {
+		t.Fatalf("rename to pates: err = %v", err)
+	}
+
+	creme, err := s.CreateArticle(ctx, "Crème fraîche", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateArticle(ctx, "creme fraiche", 0); !errors.Is(err, ErrDuplicateName) {
+		t.Fatalf("create creme fraiche: err = %v", err)
+	}
+	if err := s.AddExtra(ctx, "CREME FRAICHE", "1 pot"); err != nil {
+		t.Fatal(err)
+	}
+	articles, _ := s.Articles(ctx)
+	if len(articles) != 1 || articles[0].ID != creme {
+		t.Fatalf("articles = %+v", articles)
+	}
+}
+
+// A bulk save goes through when duplicates were already there.
+func TestLooseNamesKeepOldDuplicates(t *testing.T) {
+	ctx := context.Background()
+	s := open(t)
+	a, _ := s.CreateItem(ctx, NewItem(planner.Vegetable, "Épinards"))
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO items (kind, name, created_at) VALUES ('vegetable', 'epinards', '2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	items, _ := s.Items(ctx, planner.Vegetable)
+	for i := range items {
+		items[i].Weight = 7
+	}
+	if err := s.UpdateItems(ctx, planner.Vegetable, items); err != nil {
+		t.Fatalf("save with old duplicates: err = %v (item %d)", err, a)
 	}
 }

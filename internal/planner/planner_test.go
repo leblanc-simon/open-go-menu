@@ -15,7 +15,7 @@ func day(s string) time.Time {
 }
 
 func flat(id int64, w int) Candidate {
-	return Candidate{ID: id, Weight: w, Seasonal: [4]int{5, 5, 5, 5}}
+	return Candidate{ID: id, Weight: w, Seasonal: [4]int{}}
 }
 
 func TestSeasonOf(t *testing.T) {
@@ -138,8 +138,25 @@ func TestDrawNoRepeatWhileCandidatesRemain(t *testing.T) {
 	}
 }
 
-func TestDrawRespectsSeasonZero(t *testing.T) {
-	summerless := Candidate{ID: 1, Weight: 10, Seasonal: [4]int{10, 0, 10, 10}}
+func TestEffectiveWeight(t *testing.T) {
+	c := Candidate{ID: 1, Weight: 6, Seasonal: [4]int{3, -10, -2, 0}}
+	want := [4]int{9, 0, 4, 6}
+	for _, s := range Seasons {
+		if got := c.EffectiveWeight(s); got != want[s] {
+			t.Errorf("EffectiveWeight(%v) = %d, want %d", s, got, want[s])
+		}
+	}
+	// The general weight comes first: no bonus brings back an item at 0.
+	never := Candidate{ID: 2, Weight: 0, Seasonal: [4]int{10, 10, 10, 10}}
+	for _, s := range Seasons {
+		if got := never.EffectiveWeight(s); got != 0 {
+			t.Errorf("EffectiveWeight(%v) of a weight 0 = %d, want 0", s, got)
+		}
+	}
+}
+
+func TestDrawRespectsSeasonMalus(t *testing.T) {
+	summerless := Candidate{ID: 1, Weight: 10, Seasonal: [4]int{0, -MaxSeasonal, 0, 0}}
 	slots := FullSchedule().Slots(WeekDays(day("2026-07-06")))
 	picks := drawer(7, dishes(summerless, flat(2, 1)), 0).Draw(slots, nil, targetsAll(slots), Plate{})
 	for s, p := range picks {

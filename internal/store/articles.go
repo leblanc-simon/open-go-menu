@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"sort"
@@ -48,12 +49,11 @@ func nullID(id int64) any {
 	return id
 }
 
-// findOrCreateArticle returns the article named name, whatever the case,
-// creating it when there is none.
+// findOrCreateArticle returns the article named name, whatever the case and
+// the accents, creating it when there is none.
 func findOrCreateArticle(ctx context.Context, tx *sql.Tx, name string) (int64, error) {
-	var id int64
-	err := tx.QueryRowContext(ctx, `SELECT id FROM articles WHERE name = ? COLLATE NOCASE`, name).Scan(&id)
-	if err != sql.ErrNoRows {
+	id, ok, err := findLoose(ctx, tx, name, `SELECT id, name FROM articles ORDER BY id`)
+	if ok || err != nil {
 		return id, err
 	}
 	res, err := tx.ExecContext(ctx, `INSERT INTO articles (name) VALUES (?)`, name)
@@ -92,6 +92,9 @@ func (s *Store) Articles(ctx context.Context) ([]Article, error) {
 
 // CreateArticle adds an article to the catalogue.
 func (s *Store) CreateArticle(ctx context.Context, name string, aisle int64) (int64, error) {
+	if _, dup, err := findLoose(ctx, s.db, name, `SELECT id, name FROM articles`); dup || err != nil {
+		return 0, cmp.Or(err, ErrDuplicateName)
+	}
 	res, err := s.db.ExecContext(ctx, `INSERT INTO articles (name, aisle_id) VALUES (?, ?)`, name, nullID(aisle))
 	if isUniqueViolation(err) {
 		return 0, ErrDuplicateName
@@ -105,6 +108,10 @@ func (s *Store) CreateArticle(ctx context.Context, name string, aisle int64) (in
 // UpdateArticles saves the name and aisle of several articles at once.
 func (s *Store) UpdateArticles(ctx context.Context, articles []Article) error {
 	return s.tx(ctx, func(tx *sql.Tx) error {
+		before, err := names(ctx, tx, `SELECT id, name FROM articles`)
+		if err != nil {
+			return err
+		}
 		// Names are first moved out of the way so that two articles may
 		// swap names.
 		for _, a := range articles {
@@ -121,6 +128,9 @@ func (s *Store) UpdateArticles(ctx context.Context, articles []Article) error {
 			if err != nil {
 				return err
 			}
+		}
+		if dup, err := renamedClash(ctx, tx, before, `SELECT id, name FROM articles`); dup || err != nil {
+			return cmp.Or(err, ErrDuplicateName)
 		}
 		return nil
 	})

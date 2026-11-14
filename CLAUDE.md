@@ -26,7 +26,7 @@ de tirage, EI interface, ENF non fonctionnelles, SEC sécurité, TR recette) et 
   Quatre sortes d'éléments (`Kind` : `Dish` plat complet, `Starch`, `Protein`, `Vegetable`) ;
   une assiette (`Plate`, tableau indexé par `Kind`, 0 = rien) est soit un plat complet, soit
   des composants. `Drawer.Draw` choisit la forme selon `ComposedShare` (repli sur l'autre forme
-  si l'une n'a pas de candidat), puis tire chaque élément (poids général × poids saisonnier, pas
+  si l'une n'a pas de candidat), puis tire chaque élément (poids général + bonus saisonnier de -10 à +10, pas
   de doublon par liste tant qu'il reste des candidats, puis repli en évitant le repas
   précédent). `DrawComponent` relance un seul composant.
 - `internal/shopping` : logique **pure** de la liste de courses — regroupe les besoins
@@ -71,8 +71,10 @@ pas ré-implémenter ces briques. Préfixe d'env `OGM_`.
   classes). Jetons de couleur sur `:root`, mode sombre via `prefers-color-scheme`.
 - Le JS est un confort (envoi auto du sélecteur de jour de début) : tout marche sans.
 - Application installable (EI-06) : manifeste traduit `/manifest.webmanifest` (`pwa.go`),
-  service worker `static/sw.js` servi en `/sw.js`, **réseau d'abord** (le cache ne sert que
-  hors ligne). Icônes PNG de `static/icons/` générées depuis les SVG du logo par Inkscape.
+  service worker `static/sw.js` servi en `/sw.js`, **hors ligne d'abord** : statiques
+  versionnés (`{{ asset "…" }}` → `?v=`) servis du cache, pages du réseau sauf s'il manque ou
+  tarde plus de 2,5 s. Les coches de la liste de courses sont instantanées et passent par une
+  file d'envoi (`localStorage`) qui survit à l'absence de réseau. Icônes PNG de `static/icons/` générées depuis les SVG du logo par Inkscape.
 - CSP stricte : ni style ni script inline.
 - Les textes qui varient selon la sorte d'élément (genre en français : « un féculent », « une
   viande ») ont une clé par sorte (`settings.add.<kind>`), jamais une concaténation.

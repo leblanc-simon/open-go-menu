@@ -51,17 +51,26 @@ func (p Plate) IsZero() bool {
 	return p == Plate{}
 }
 
-// Candidate is an item as seen by the draw: an identifier and its weights.
+// Seasonal bonuses range from -MaxSeasonal to +MaxSeasonal: at -MaxSeasonal,
+// an item is never drawn during the season, whatever its general weight.
+const MaxSeasonal = 10
+
+// Candidate is an item as seen by the draw: an identifier, its general
+// weight and its seasonal bonuses.
 type Candidate struct {
 	ID       int64
 	Weight   int
-	Seasonal [4]int // indexed by Season
+	Seasonal [4]int // bonus (or malus when negative), indexed by Season
 }
 
 // EffectiveWeight is the draw weight of the candidate during a season: the
-// general weight times the seasonal one (RG-01).
+// general weight plus the bonus of the season, never below zero (RG-01). The
+// general weight comes first: at 0, no bonus brings the item back.
 func (c Candidate) EffectiveWeight(s Season) int {
-	return c.Weight * c.Seasonal[s]
+	if c.Weight <= 0 {
+		return 0
+	}
+	return max(0, c.Weight+c.Seasonal[s])
 }
 
 // Pools holds the candidates of each kind.

@@ -2,6 +2,9 @@ app:
   name: OpenGoMenu
   tagline: The meals of the week drawn at random, and the shopping list that goes with them.
   offline: Offline — you are viewing the last saved version of this page.
+  offline_ticks: Ticked boxes are kept and will be sent once back online.
+  stale: Slow network — you are viewing the last saved version of this page.
+  reload: Show the latest version
 
 nav:
   skip: Skip to content
@@ -72,9 +75,11 @@ settings:
     protein: The meat or fish of a composed meal.
     vegetable: The vegetable of a composed meal.
   weights_hint: >-
-    Each weight ranges from 0 to 10. The higher it is, the more often the item
-    comes up: its odds on a given day are the general weight times the
-    season's. A weight of 0 keeps it out of the draw. A new item starts at {{.Weight}} everywhere.
+    The general weight ranges from 0 to 10: the higher it is, the more often
+    the item comes up, and at 0 it never does. Each season adds points to the
+    general weight or takes some away, from -{{.MaxSeasonal}} to +{{.MaxSeasonal}}: 0 changes nothing, +3
+    favours the item, -3 makes it come up less often, -{{.MaxSeasonal}} keeps it out of the
+    season. A new item starts at {{.Weight}}, with no seasonal bonus.
   name: Name
   weight: General weight
   delete: Delete
@@ -301,6 +306,7 @@ validation:
   name_duplicate: "“{{.Name}}” is already in this list."
   name_taken: One of the names was taken by an item added meanwhile. Reload the page.
   weight_range: "{{.Field}}: enter a whole number from 0 to {{.Max}}."
+  seasonal_range: "{{.Field}}: enter a whole number from -{{.Max}} to +{{.Max}}."
   form_invalid: Nothing was saved. Fix the flagged items.
   meals_required: Tick at least one meal.
   ingredient_duplicate: "“{{.Name}}” is already in the recipe."
@@ -366,3 +372,7 @@ error:
   internal: An internal error occurred.
   rate_limit: Too many requests. Try again in a minute.
   back_home: Back to the week
+
+autocomplete:
+  similar: "A similar name already exists:"
+  existing: already there

@@ -47,6 +47,8 @@ type shoppingView struct {
 	ExtraErr      string
 }
 
+// groupView is an aisle of the list. An aisle whose lines are all ticked is
+// there too, hidden, for the script to put a line back without reloading.
 type groupView struct {
 	Anchor  string
 	Name    string
@@ -59,12 +61,15 @@ type lineView struct {
 	Name        string
 	Action      string
 	Anchor      string // the group to come back to
+	Group       string // the anchor of its aisle, ticked or not
+	Rank        int    // its place in the whole list
 	Key         string
 	Checked     bool
 	IsExtra     bool
 	Aisles      []store.Aisle // set to file an article without aisle
 	Needs       []needView
 	TickLabel   string
+	UntickLabel string
 	AisleLabel  string
 	RemoveLabel string
 }
@@ -270,24 +275,56 @@ func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from,
 			v.Missing = append(v.Missing, loc.T("shopping.missing_item", label))
 		}
 	}
-	for _, g := range list.Groups {
-		gv := groupView{Anchor: "aisle-" + strconv.FormatInt(g.Aisle.ID, 10), Name: g.Aisle.Name, NoAisle: g.Aisle.ID == 0}
-		if gv.NoAisle {
-			gv.Anchor, gv.Name = "aisle-none", loc.T("shopping.no_aisle")
+	// Every aisle of a line, ticked or not, in the order of the shop.
+	var groups []shopping.Aisle
+	seen := map[int64]bool{}
+	for _, x := range append(shopAisles, shopping.Aisle{}) {
+		used := false
+		for _, g := range list.Groups {
+			used = used || g.Aisle == x
 		}
-		for _, l := range g.Lines {
-			lv := lineOf(loc, l, gv.Anchor)
-			if gv.NoAisle {
-				lv.Aisles = choices
+		for _, l := range list.Done {
+			used = used || l.Aisle == x
+		}
+		if used && !seen[x.ID] {
+			seen[x.ID] = true
+			groups = append(groups, x)
+		}
+	}
+	for _, x := range groups {
+		gv := groupView{Anchor: aisleAnchor(x), Name: x.Name, NoAisle: x.ID == 0}
+		if gv.NoAisle {
+			gv.Name = loc.T("shopping.no_aisle")
+		}
+		for _, g := range list.Groups {
+			if g.Aisle != x {
+				continue
 			}
-			gv.Lines = append(gv.Lines, lv)
+			for _, l := range g.Lines {
+				lv := lineOf(loc, l, gv.Anchor)
+				if gv.NoAisle {
+					lv.Aisles = choices
+				}
+				gv.Lines = append(gv.Lines, lv)
+			}
 		}
 		v.Groups = append(v.Groups, gv)
 	}
 	for _, l := range list.Done {
-		v.Done = append(v.Done, lineOf(loc, l, "done"))
+		lv := lineOf(loc, l, "done")
+		if l.Aisle.ID == 0 {
+			lv.Aisles = choices
+		}
+		v.Done = append(v.Done, lv)
 	}
 	a.render(w, r, loc, status, "shopping", v)
+}
+
+func aisleAnchor(x shopping.Aisle) string {
+	if x.ID == 0 {
+		return "aisle-none"
+	}
+	return "aisle-" + strconv.FormatInt(x.ID, 10)
 }
 
 func lineOf(loc *i18n.Localizer, l shopping.Line, anchor string) lineView {
@@ -297,14 +334,14 @@ func lineOf(loc *i18n.Localizer, l shopping.Line, anchor string) lineView {
 		Name:        l.Article.Name,
 		Action:      "/shopping/articles/" + strconv.FormatInt(l.Article.ID, 10),
 		Anchor:      anchor,
+		Group:       aisleAnchor(l.Aisle),
+		Rank:        l.Rank,
 		Key:         l.Key(),
 		Checked:     l.Checked,
 		TickLabel:   loc.T("shopping.tick_label", name),
+		UntickLabel: loc.T("shopping.untick_label", name),
 		AisleLabel:  loc.T("shopping.aisle_label", name),
 		RemoveLabel: loc.T("shopping.remove_label", name),
-	}
-	if l.Checked {
-		lv.TickLabel = loc.T("shopping.untick_label", name)
 	}
 	for _, n := range l.Needs {
 		nv := needView{Quantity: n.Quantity}

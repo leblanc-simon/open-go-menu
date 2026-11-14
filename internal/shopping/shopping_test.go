@@ -53,6 +53,10 @@ func TestBuild(t *testing.T) {
 	if got := names(list.Done); len(got) != 2 || got[0] != "Bœuf" || got[1] != "Bière" {
 		t.Fatalf("done = %v", got)
 	}
+	// A ticked line keeps its aisle and its place in the whole list.
+	if d := list.Done[0]; d.Aisle != butcher || d.Rank != 2 || list.Done[1].Aisle.ID != 0 || list.Done[1].Rank != 3 {
+		t.Errorf("done = %+v", list.Done)
+	}
 	more := append(rows, Row{beef, Need{Slot: slot("2026-10-10", planner.Dinner)}})
 	list = Build(more, []Aisle{veg, butcher}, map[int64]string{10: b.Key()})
 	if len(list.Done) != 0 {

@@ -2,6 +2,9 @@ app:
   name: OpenGoMenu
   tagline: Les menus de la semaine tirés au sort et la liste de courses qui va avec.
   offline: Hors ligne — vous consultez la dernière version enregistrée de cette page.
+  offline_ticks: Les cases cochées sont gardées et seront envoyées au retour du réseau.
+  stale: Réseau lent — vous consultez la dernière version enregistrée de cette page.
+  reload: Afficher la version à jour
 
 nav:
   skip: Aller au contenu
@@ -72,9 +75,11 @@ settings:
     protein: La viande ou le poisson d'un repas composé.
     vegetable: Le légume d'un repas composé.
   weights_hint: >-
-    Chaque poids va de 0 à 10. Plus il est élevé, plus l'élément sort souvent :
-    ses chances un jour donné sont le poids général multiplié par celui de la
-    saison. Un poids à 0 l'écarte du tirage. Un nouvel élément part à {{.Weight}} partout.
+    Le poids général va de 0 à 10 : plus il est élevé, plus l'élément sort
+    souvent, et à 0 il ne sort jamais. Chaque saison ajoute ou retire des
+    points au poids général, de -{{.MaxSeasonal}} à +{{.MaxSeasonal}} : 0 ne change rien, +3 le favorise,
+    -3 le fait sortir moins souvent, -{{.MaxSeasonal}} l'écarte de la saison. Un nouvel élément
+    part à {{.Weight}}, sans bonus de saison.
   name: Nom
   weight: Poids général
   delete: Supprimer
@@ -302,6 +307,7 @@ validation:
   name_duplicate: "« {{.Name}} » est déjà dans cette liste."
   name_taken: Un des noms est déjà pris par un élément ajouté entre-temps. Rechargez la page.
   weight_range: "{{.Field}} : saisissez un nombre entier de 0 à {{.Max}}."
+  seasonal_range: "{{.Field}} : saisissez un nombre entier de -{{.Max}} à +{{.Max}}."
   form_invalid: Rien n'a été enregistré. Corrigez les éléments signalés.
   meals_required: Cochez au moins un repas.
   ingredient_duplicate: "« {{.Name}} » est déjà dans la recette."
@@ -367,3 +373,7 @@ error:
   internal: Une erreur interne est survenue.
   rate_limit: Trop de requêtes. Réessayez dans une minute.
   back_home: Retour à la semaine
+
+autocomplete:
+  similar: "Un nom proche existe déjà :"
+  existing: déjà là
