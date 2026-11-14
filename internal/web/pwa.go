@@ -1,9 +1,48 @@
 package web
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"io"
+	"io/fs"
 	"net/http"
 )
+
+// HashFS returns a short digest of every file of fsys, as the version of the
+// static files: it changes whenever one of them does.
+func HashFS(fsys fs.FS) (string, error) {
+	h := sha256.New()
+	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		f, err := fsys.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		io.WriteString(h, path+"\x00")
+		_, err = io.Copy(h, f)
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12], nil
+}
+
+// StaticHandler serves the static files; a versioned URL (?v=) never
+// changes, so it is cached for a year.
+func StaticHandler(fsys fs.FS) http.Handler {
+	files := http.StripPrefix("/static/", http.FileServer(http.FS(fsys)))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("v") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+		files.ServeHTTP(w, r)
+	})
+}
 
 // The colours of the installed app, mirroring the light tokens of main.css.
 const (

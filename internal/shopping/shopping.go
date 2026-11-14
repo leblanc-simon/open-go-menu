@@ -54,6 +54,12 @@ type Line struct {
 	Article Article
 	Needs   []Need
 	Checked bool
+	// Aisle is the aisle the line is listed under while to buy: the zero
+	// Aisle for an article without aisle, or whose aisle is gone.
+	Aisle Aisle
+	// Rank is the position of the line in the whole list, ticked or not:
+	// a ticked line goes back to its place when unticked.
+	Rank int
 }
 
 // Key sums up the needs of the line. Ticking the line stores it; a later
@@ -146,17 +152,18 @@ func Build(rows []Row, aisles []Aisle, ticked map[int64]string) List {
 	})
 
 	var list List
-	for _, l := range lines {
+	for i, l := range lines {
 		sort.SliceStable(l.Needs, func(i, j int) bool { return needBefore(l.Needs[i], l.Needs[j]) })
+		l.Rank = i
+		if r := order(l); r != last {
+			l.Aisle = aisles[r-1]
+		}
 		if k, ok := ticked[l.Article.ID]; ok && l.covered(k) {
 			l.Checked = true
 			list.Done = append(list.Done, *l)
 			continue
 		}
-		aisle := Aisle{}
-		if r := order(l); r != last {
-			aisle = aisles[r-1]
-		}
+		aisle := l.Aisle
 		if n := len(list.Groups); n == 0 || list.Groups[n-1].Aisle != aisle {
 			list.Groups = append(list.Groups, Group{Aisle: aisle})
 		}

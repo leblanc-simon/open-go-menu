@@ -124,8 +124,11 @@ func run(cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	if app.AssetVersion, err = web.HashFS(staticSub); err != nil {
+		return err
+	}
 	mux := http.NewServeMux()
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
+	mux.Handle("GET /static/", web.StaticHandler(staticSub))
 	// The service worker is served from the root, so that its scope is the
 	// whole application; it is checked for updates at every visit.
 	mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {

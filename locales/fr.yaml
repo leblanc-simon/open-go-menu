@@ -2,6 +2,9 @@ app:
   name: OpenGoMenu
   tagline: Les menus de la semaine tirés au sort et la liste de courses qui va avec.
   offline: Hors ligne — vous consultez la dernière version enregistrée de cette page.
+  offline_ticks: Les cases cochées sont gardées et seront envoyées au retour du réseau.
+  stale: Réseau lent — vous consultez la dernière version enregistrée de cette page.
+  reload: Afficher la version à jour
 
 nav:
   skip: Aller au contenu
@@ -370,3 +373,7 @@ error:
   internal: Une erreur interne est survenue.
   rate_limit: Trop de requêtes. Réessayez dans une minute.
   back_home: Retour à la semaine
+
+autocomplete:
+  similar: "Un nom proche existe déjà :"
+  existing: déjà là

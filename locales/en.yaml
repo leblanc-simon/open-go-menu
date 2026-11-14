@@ -2,6 +2,9 @@ app:
   name: OpenGoMenu
   tagline: The meals of the week drawn at random, and the shopping list that goes with them.
   offline: Offline — you are viewing the last saved version of this page.
+  offline_ticks: Ticked boxes are kept and will be sent once back online.
+  stale: Slow network — you are viewing the last saved version of this page.
+  reload: Show the latest version
 
 nav:
   skip: Skip to content
@@ -369,3 +372,7 @@ error:
   internal: An internal error occurred.
   rate_limit: Too many requests. Try again in a minute.
   back_home: Back to the week
+
+autocomplete:
+  similar: "A similar name already exists:"
+  existing: already there

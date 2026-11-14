@@ -32,6 +32,10 @@ type App struct {
 	// Options holds the account settings.
 	Options Options
 
+	// AssetVersion tells the versions of the static files apart, in their
+	// URLs: they can then be cached for good (see HashFS).
+	AssetVersion string
+
 	pages map[string]*template.Template
 	login *authx.Handlers
 	guard *loginGuard
@@ -61,6 +65,13 @@ func New(templateFS fs.FS, accts *accounts.Store, fams *families.Registry, auth 
 	a := &App{Accounts: accts, Families: fams, Auth: auth, Options: opts,
 		I18n: bundle, CSRF: csrf, Logger: logger, Now: time.Now,
 		pages: make(map[string]*template.Template, len(pageNames)), guard: newLoginGuard()}
+	// asset returns the versioned URL of a static file.
+	stubs["asset"] = func(path string) string {
+		if a.AssetVersion == "" {
+			return "/static/" + path
+		}
+		return "/static/" + path + "?v=" + a.AssetVersion
+	}
 	a.login = authx.NewHandlers(auth, loginRenderer{a})
 	for _, name := range pageNames {
 		t, err := template.New(name).Funcs(stubs).ParseFS(templateFS, "layout.html", name+".html")

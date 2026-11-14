@@ -83,11 +83,12 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | EF-11 | Formulaire d'**ajout** d'un élément dans la liste de l'onglet : nom obligatoire, poids général pré-rempli à 5, bonus saisonniers à 0. | O |
 | EF-12 | **Suppression** d'un élément. Elle est logique : il disparaît de la liste et des tirages, mais reste affiché dans les plannings passés. | I |
 | EF-13 | Onglet Repas : choix des **repas planifiés jour par jour** (midi et/ou soir pour chaque jour de la semaine ; au moins un repas dans la semaine, un jour peut n'en avoir aucun). Défaut : midi et soir tous les jours. | I |
-| EF-14 | Le nom d'un élément est unique (insensible à la casse) parmi les éléments non supprimés **de la même liste**, 1 à 100 caractères. | O |
+| EF-14 | Le nom d'un élément est unique (insensible à la casse et aux accents) parmi les éléments non supprimés **de la même liste**, 1 à 100 caractères. | O |
 | EF-15 | Onglet Repas : **part de repas composés**, de 0 à 100 %. Défaut : 50 %. | O |
 | EF-18 | Onglet Repas : chaque repas de la semaine peut recevoir un **repas fixe** (un plat complet, ou des composants), choisi sur une page dédiée ; on peut le retirer pour revenir au tirage. | I |
 | EF-19 | Chaque plat complet a une **fiche d'ingrédients** : ajout (nom, quantité libre ≤ 50 caractères, rayon facultatif), modification groupée des quantités, retrait, ordre de saisie. Les articles et les féculents, viandes/poissons et légumes vivants sont proposés à la saisie ; un ingrédient saisi n'est jamais ajouté à ces listes. Un ingrédient est unique (insensible à la casse) dans une recette ; l'article est partagé entre recettes et reste au catalogue quand plus aucune recette ne l'utilise. | I |
 | EF-20 | Onglet **Rayons** : ajout, renommage groupé, suppression (ses articles restent sans rayon), ordre modifiable par boutons ↑/↓, et sur ordinateur par glisser-déposer. | I |
+| EF-32 | **Suggestions de saisie** contre les doublons : en tapant le nom d'un élément ou d'un article, les entrées existantes au nom proche (sans tenir compte de la casse ni des accents) sont proposées, et en choisir une mène à elle ; un nom quasi identique (accents, casse, pluriel) est signalé. Pour un ingrédient ou un ajout à la liste, les articles sont proposés de même, et un nom saisi sans accents reprend l'article existant. | I |
 | EF-21 | Onglet **Articles** : nom et rayon de chaque article, modifiables en place et enregistrés en une fois ; ajout ; suppression, refusée pour un ingrédient d'une recette. | I |
 
 ### 3.4 Liste de courses
@@ -96,7 +97,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 |---|---|---|
 | EF-22 | Une liste de courses couvre une **période** (1 à 31 jours). Sans liste, ou par « Nouvelle liste », la page propose la **dernière semaine entièrement prévue** à partir de la semaine en cours (tous ses repas planifiés remplis) ; sinon, ou au choix, on saisit les dates de début et de fin. Une nouvelle liste **remplace** la précédente, ses cases cochées et ses ajouts : les courses sont ponctuelles. | I |
 | EF-23 | On peut **ajouter à la main** un article à la liste (nom avec suggestions, quantité libre), puis le retirer. Aucun ajout n'est permanent ni récurrent. | I |
-| EF-24 | Chaque ligne montre l'article, et pour chaque besoin la quantité éventuelle, le plat dont il est l'ingrédient, le jour et le repas (ou « Ajouté à la main »). Une **case** met l'article dans le panier : la ligne passe en fin de liste, atténuée, sous « Dans le panier ». Un article sans rayon peut être rangé depuis la liste. Les plats complets planifiés sans ingrédients sont signalés en tête de liste. | I |
+| EF-24 | Chaque ligne montre l'article, et pour chaque besoin la quantité éventuelle, le plat dont il est l'ingrédient, le jour et le repas (ou « Ajouté à la main »). Une **case** met l'article dans le panier : la ligne passe **aussitôt** en fin de liste, atténuée, sous « Dans le panier » (et retourne dans son rayon si on la décoche), sans attendre le serveur ; avec ou sans réseau, la coche est gardée sur l'appareil et envoyée dès que possible. Un article sans rayon peut être rangé depuis la liste. Les plats complets planifiés sans ingrédients sont signalés en tête de liste. | I |
 
 ### 3.5 Comptes et familles
 
@@ -132,11 +133,11 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | Réf | Exigence |
 |---|---|
 | EI-01 | Interface responsive, utilisable sur téléphone (cas d'usage principal : en cuisine, au marché). |
-| EI-02 | Fonctionne **sans JavaScript** ; le JS n'apporte que du confort : envoi automatique du sélecteur de jour de début, actions sur la semaine sans rechargement ni déplacement de la page, glisser-déposer et déplacement par toucher des repas, glisser-déposer des rayons. |
+| EI-02 | Fonctionne **sans JavaScript** ; le JS n'apporte que du confort : envoi automatique du sélecteur de jour de début, actions sur la semaine sans rechargement ni déplacement de la page, glisser-déposer et déplacement par toucher des repas, glisser-déposer des rayons, cases de la liste instantanées et hors ligne, suggestions de saisie. |
 | EI-03 | Accessibilité : libellés de formulaires, focus clavier visible, contrastes AA, `prefers-reduced-motion` respecté. |
 | EI-04 | Toute action mutante suit le schéma POST → redirection → GET ; le résultat est confirmé par un message flash. |
 | EI-05 | Les erreurs de saisie réaffichent le formulaire avec les valeurs saisies et un message par champ fautif. |
-| EI-06 | L'application est **installable** sur téléphone et ordinateur (application web progressive) : manifeste traduit, icônes, raccourcis Semaine et Courses. Un service worker « réseau d'abord » garde les dernières pages vues consultables hors ligne, avec un bandeau qui le signale ; hors ligne, les formulaires ne sont pas envoyés. Installation possible en HTTPS (ou sur `localhost`). |
+| EI-06 | L'application est **installable** sur téléphone et ordinateur (application web progressive) : manifeste traduit, icônes, raccourcis Semaine et Courses. Un service worker **hors ligne d'abord** : fichiers statiques servis du cache ; pages du réseau, mais sa copie enregistrée s'affiche aussitôt sans réseau ou quand il tarde (2,5 s), avec un bandeau qui le signale et propose la version à jour quand elle arrive ; la semaine et la liste de courses sont gardées même non visitées. Hors ligne, les formulaires ne sont pas envoyés, sauf les cases de la liste de courses (EF-24). Installation possible en HTTPS (ou sur `localhost`). |
 
 ## 5. Exigences non fonctionnelles
 
@@ -311,4 +312,6 @@ devient -10.
 | TR-24 | Changer le mot de passe déconnecte l'autre appareil connecté, pas celui-ci ; « Déconnecter tous les appareils » les déconnecte tous. |
 | TR-25 | Supprimer la famille (mot de passe et case cochée) efface sa base ; l'identifiant ne se connecte plus et peut être repris. |
 | TR-26 | `purge` sur une famille vue il y a 13 mois et une autre vue hier : seule la première est supprimée ; `-dry-run` ne supprime rien. |
+| TR-28 | Cocher une ligne de la liste la fait passer immédiatement dans « Dans le panier » ; hors ligne, cocher deux lignes et recharger : elles restent cochées ; au retour du réseau, le serveur les a. |
+| TR-29 | « Pâtes » existe : taper « pates » dans l'ajout de féculent la propose et signale un nom proche ; l'ajouter est refusé. Ajouter « creme fraiche » à la liste quand « Crème fraîche » existe reprend cet article. |
 | TR-27 | `create-family -from` sur la base d'une installation mono-foyer : la famille retrouve ses éléments ; la base d'origine n'est pas modifiée. |

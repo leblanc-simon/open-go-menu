@@ -5,6 +5,7 @@ const finePointer = window.matchMedia("(pointer: fine)").matches;
 // enhance sets up what the listeners below cannot delegate, on the page and
 // again on each page the script swaps in.
 function enhance(root) {
+  root.querySelectorAll("input[data-autocomplete][list]").forEach(autocomplete);
   root.querySelectorAll("[data-autosubmit-fallback]").forEach((button) => {
     button.hidden = true;
   });
@@ -285,6 +286,7 @@ async function submitInPlace(form, submitter) {
       history.replaceState(null, "", url.pathname + url.search);
     }
     enhance(next);
+    applyPending(next);
 
     const after = slot && next.querySelector(`[data-slot="${slot}"]`);
     if (after) {
@@ -322,6 +324,12 @@ document.addEventListener("submit", (event) => {
   if (form.getAttribute("method") !== "post") {
     return;
   }
+  // Ticking a line of the shopping list never waits for the network.
+  if (form.matches("[data-tick]")) {
+    event.preventDefault();
+    tick(form, event.submitter);
+    return;
+  }
   // Offline, a post could only end on the browser's error page.
   if (!navigator.onLine) {
     event.preventDefault();
@@ -332,6 +340,8 @@ document.addEventListener("submit", (event) => {
   // that ignore the Clear-Site-Data header of the response.
   if (form.matches("[data-logout]") && "caches" in window) {
     event.preventDefault();
+    outbox.length = 0;
+    saveOutbox();
     caches
       .keys()
       .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
@@ -339,6 +349,8 @@ document.addEventListener("submit", (event) => {
     return;
   }
   if (!form.closest("[data-in-place]")) {
+    // The page the form leads to must come from the server, however slow.
+    navigator.serviceWorker?.controller?.postMessage({ type: "fresh" });
     return;
   }
   event.preventDefault();
@@ -348,31 +360,417 @@ document.addEventListener("submit", (event) => {
   }
 });
 
-// ── Installed application ─────────────────────────────────────────────────
-// The service worker makes the application installable and keeps the last
-// pages seen readable offline; a bar says when the page may be out of date.
+// ── Shopping list: instant, and offline ──────────────────────────────────
+// A tick moves the line at once, to the basket or back to its aisle; the
+// change waits in an outbox, kept across reloads, until the server has it.
+// Offline, the ticks pile up there and leave once back online; the page shown
+// meanwhile — even the saved copy — gets them applied.
 
-function showOffline() {
-  if (document.querySelector(".offline-bar")) {
+const OUTBOX = "opengomenu-outbox";
+let outbox = [];
+try {
+  outbox = JSON.parse(localStorage.getItem(OUTBOX)) || [];
+} catch {
+  // Without storage the ticks still leave, only not across a reload.
+}
+
+function saveOutbox() {
+  try {
+    if (outbox.length) {
+      localStorage.setItem(OUTBOX, JSON.stringify(outbox));
+    } else {
+      localStorage.removeItem(OUTBOX);
+    }
+  } catch {
+    // Same as above.
+  }
+}
+
+// placeLine shows a line ticked (in the basket) or not (in its aisle), at its
+// place in the list.
+function placeLine(line, ticked) {
+  const button = line.querySelector(".tick");
+  line.classList.toggle("line--checked", ticked);
+  button.value = ticked ? "untick" : "tick";
+  button.setAttribute("aria-pressed", String(ticked));
+  button.setAttribute("aria-label", ticked ? button.dataset.untickLabel : button.dataset.tickLabel);
+  line.querySelectorAll("input[name='anchor']").forEach((input) => {
+    input.value = ticked ? "done" : line.dataset.group;
+  });
+
+  const from = line.closest(".aisle");
+  const to = document.getElementById(ticked ? "done" : line.dataset.group);
+  if (!from || !to || from === to) {
     return;
   }
-  const bar = document.createElement("p");
-  bar.className = "offline-bar";
-  bar.setAttribute("role", "status");
-  bar.textContent = document.body.dataset.offline;
-  document.body.prepend(bar);
+  // Keyboard users go on with the next line of the list they were in.
+  let focus = null;
+  if (document.activeElement === button) {
+    const near = line.nextElementSibling || line.previousElementSibling;
+    focus = near?.querySelector(".tick") || button;
+  }
+  const lines = to.querySelector(".lines");
+  const rank = Number(line.dataset.rank);
+  const next = [...lines.children].find((other) => Number(other.dataset.rank) > rank);
+  lines.insertBefore(line, next || null);
+  to.hidden = false;
+  from.hidden = !from.querySelector(".line");
+  focus?.focus({ preventScroll: focus !== button });
 }
 
-window.addEventListener("offline", showOffline);
-window.addEventListener("online", () => document.querySelector(".offline-bar")?.remove());
-if (!navigator.onLine) {
-  showOffline();
+function tick(form, submitter) {
+  const button = submitter || form.querySelector(".tick");
+  const action = button.value;
+  const url = form.getAttribute("action");
+  // Read before placeLine turns the button the other way.
+  const body = new URLSearchParams(new FormData(form, button)).toString();
+  placeLine(form.closest(".line"), action === "tick");
+  // The last change of a line is the one that counts.
+  outbox = outbox.filter((op) => op.url !== url || op.sending);
+  outbox.push({ url, action, body });
+  saveOutbox();
+  updateOfflineBar();
+  flush();
 }
+
+// applyPending shows the ticks still in the outbox on a page from the server
+// or the cache.
+function applyPending(root) {
+  for (const op of outbox) {
+    const form = root.querySelector(`form[data-tick][action="${CSS.escape(op.url)}"]`);
+    if (form) {
+      placeLine(form.closest(".line"), op.action === "tick");
+    }
+  }
+}
+
+let flushing = false;
+let retry = null;
+
+// flush sends the outbox, in order. A refused tick (the list was replaced,
+// the article is gone) is dropped; a server or network failure keeps it for
+// later.
+async function flush() {
+  if (flushing || !outbox.length || !navigator.onLine) {
+    return;
+  }
+  flushing = true;
+  clearTimeout(retry);
+  let sent = false;
+  try {
+    while (outbox.length) {
+      const op = outbox[0];
+      op.sending = true;
+      let res;
+      try {
+        res = await fetch(op.url, { method: "POST", body: new URLSearchParams(op.body) });
+      } catch {
+        op.sending = false;
+        retry = setTimeout(flush, 30000);
+        break;
+      }
+      op.sending = false;
+      if (res.status >= 500 || res.status === 429 || new URL(res.url).pathname === "/login") {
+        retry = setTimeout(flush, 30000);
+        break;
+      }
+      outbox = outbox.filter((other) => other !== op);
+      saveOutbox();
+      sent = true;
+    }
+  } finally {
+    flushing = false;
+    updateOfflineBar();
+  }
+  // The saved copy of the list catches up, for the next time offline.
+  if (sent && !outbox.length) {
+    fetch("/shopping").catch(() => {});
+  }
+}
+
+window.addEventListener("online", flush);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    flush();
+  }
+});
+
+// ── Installed application ─────────────────────────────────────────────────
+// The service worker makes the application installable and serves the saved
+// pages when the network is missing or slow; a bar says so.
+
+function showBar(text, action) {
+  let bar = document.querySelector(".offline-bar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.className = "offline-bar";
+    bar.setAttribute("role", "status");
+    document.body.prepend(bar);
+  }
+  const p = document.createElement("p");
+  p.className = "offline-bar__text";
+  p.textContent = text;
+  bar.replaceChildren(p);
+  if (action) {
+    bar.append(action);
+  }
+}
+
+function hideBar() {
+  document.querySelector(".offline-bar")?.remove();
+}
+
+let stale = false;
+let updated = false;
+
+// pageURL is the address of the page as the service worker saw it.
+function pageURL() {
+  return location.href.split("#")[0];
+}
+
+function updateOfflineBar() {
+  const body = document.body.dataset;
+  if (!navigator.onLine) {
+    let text = body.offline;
+    if (outbox.length) {
+      text += " " + body.offlineTicks;
+    }
+    showBar(text);
+  } else if (stale) {
+    let reload = null;
+    if (updated) {
+      reload = document.createElement("button");
+      reload.type = "button";
+      reload.className = "link-button offline-bar__reload";
+      reload.textContent = body.reload;
+      reload.addEventListener("click", () => location.reload());
+    }
+    showBar(body.stale, reload);
+  } else {
+    hideBar();
+  }
+}
+
+function showOffline() {
+  updateOfflineBar();
+}
+
+window.addEventListener("offline", updateOfflineBar);
+window.addEventListener("online", updateOfflineBar);
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(() => {
     // Without it the application still works, only not offline.
   });
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.url !== pageURL()) {
+      return;
+    }
+    if (data.type === "stale") {
+      stale = true;
+      updated = updated || data.updated;
+    } else if (data.type === "updated") {
+      updated = true;
+    }
+    updateOfflineBar();
+  });
+  const controller = navigator.serviceWorker.controller;
+  if (controller) {
+    controller.postMessage({ type: "hello", url: pageURL() });
+    // The week and the shopping list stay at hand offline.
+    if (document.querySelector(".masthead__nav") && navigator.onLine) {
+      controller.postMessage({ type: "warm", urls: ["/", "/shopping"].filter((u) => u !== location.pathname) });
+    }
+  }
 }
 
+// ── Suggestions while typing a name ───────────────────────────────────────
+// The names of a datalist show under the field, matched whatever the case
+// and the accents. Where the names are the existing entries of the list
+// (data-autocomplete="existing"), picking one goes to it instead, and a name
+// close to an existing one — accents, case, plural — is pointed out: no
+// duplicates by mistake.
+
+function fold(text) {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// stem drops the plural marks, word by word: "haricots verts" ~ "haricot vert".
+function stem(folded) {
+  return folded
+    .split(" ")
+    .map((word) => (word.length > 3 ? word.replace(/[sx]$/, "") : word))
+    .join(" ");
+}
+
+let suggestCount = 0;
+
+function autocomplete(input) {
+  const datalist = document.getElementById(input.getAttribute("list"));
+  if (!datalist) {
+    return;
+  }
+  const existing = input.dataset.autocomplete === "existing";
+  const options = [...datalist.options].map((o) => ({
+    name: o.value,
+    folded: fold(o.value),
+    target: o.dataset.target,
+  }));
+  input.removeAttribute("list");
+
+  const id = `suggest-${++suggestCount}`;
+  const box = document.createElement("ul");
+  box.className = "suggest";
+  box.id = id;
+  box.setAttribute("role", "listbox");
+  box.hidden = true;
+  input.after(box);
+  input.parentElement.classList.add("suggest-host");
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-controls", id);
+  input.setAttribute("aria-expanded", "false");
+
+  let note = null;
+  if (existing) {
+    note = document.createElement("p");
+    note.className = "suggest-note";
+    note.id = `${id}-note`;
+    note.setAttribute("aria-live", "polite");
+    note.hidden = true;
+    box.after(note);
+    input.setAttribute("aria-describedby", [input.getAttribute("aria-describedby"), note.id].filter(Boolean).join(" "));
+  }
+
+  let matches = [];
+  let active = -1;
+
+  function close() {
+    box.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+    active = -1;
+  }
+
+  function highlight(i) {
+    active = i;
+    [...box.children].forEach((li, j) => li.setAttribute("aria-selected", String(j === i)));
+    if (i >= 0) {
+      input.setAttribute("aria-activedescendant", `${id}-${i}`);
+      box.children[i].scrollIntoView({ block: "nearest" });
+    } else {
+      input.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function choose(option) {
+    close();
+    if (existing && option.target) {
+      // Already there: go to it rather than typing it twice.
+      const field = document.getElementById(option.target);
+      field?.scrollIntoView({ block: "center" });
+      field?.focus({ preventScroll: true });
+      return;
+    }
+    input.value = option.name;
+    update(false);
+  }
+
+  function update(open = true) {
+    const q = fold(input.value);
+    if (note) {
+      const same = q && options.find((o) => o.folded === q || stem(o.folded) === stem(q));
+      note.hidden = !same;
+      if (same) {
+        const name = document.createElement("strong");
+        name.textContent = same.name;
+        note.replaceChildren(input.dataset.similar + " ", name);
+      }
+    }
+    if (!q || !open) {
+      close();
+      return;
+    }
+    // Names starting with the text first, then those with a word starting
+    // with it, then those holding it.
+    const score = (o) => (o.folded.startsWith(q) ? 0 : o.folded.includes(" " + q) ? 1 : 2);
+    matches = options
+      .filter((o) => o.folded.includes(q) && (existing || o.folded !== q))
+      .sort((a, b) => score(a) - score(b))
+      .slice(0, 8);
+    box.replaceChildren(
+      ...matches.map((o, i) => {
+        const li = document.createElement("li");
+        li.id = `${id}-${i}`;
+        li.className = "suggest__option";
+        li.setAttribute("role", "option");
+        li.setAttribute("aria-selected", "false");
+        li.textContent = o.name;
+        if (existing) {
+          const tag = document.createElement("span");
+          tag.className = "suggest__tag";
+          tag.textContent = input.dataset.existing;
+          li.append(" ", tag);
+        }
+        // pointerdown would blur the field first and close the list.
+        li.addEventListener("pointerdown", (event) => event.preventDefault());
+        li.addEventListener("click", () => choose(o));
+        return li;
+      }),
+    );
+    box.hidden = !matches.length;
+    input.setAttribute("aria-expanded", String(!box.hidden));
+    active = -1;
+  }
+
+  input.addEventListener("input", () => update());
+  input.addEventListener("blur", close);
+  input.addEventListener("keydown", (event) => {
+    if (box.hidden) {
+      if (event.key === "ArrowDown" && input.value) {
+        update();
+        event.preventDefault();
+      }
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        highlight((active + 1) % matches.length);
+        break;
+      case "ArrowUp":
+        highlight(active <= 0 ? matches.length - 1 : active - 1);
+        break;
+      case "Enter":
+        if (active < 0) {
+          close();
+          return; // the form is sent
+        }
+        choose(matches[active]);
+        break;
+      case "Escape":
+        close();
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  });
+  if (input.value) {
+    update(false);
+  }
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────
+
 enhance(document);
+applyPending(document);
+updateOfflineBar();
+flush();

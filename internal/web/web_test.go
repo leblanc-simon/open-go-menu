@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"leblanc.io/open-go-base/appconf"
@@ -787,7 +788,7 @@ func TestShoppingList(t *testing.T) {
 		t.Fatal("the ticked line is not in the basket")
 	}
 	_ = c.store.SetPlates(ctx, map[planner.Slot]planner.Plate{{Day: d("2026-10-16"), Meal: planner.Lunch}: {planner.Protein: proteins[0].ID}})
-	if body, _ = c.get("/shopping"); strings.Contains(body, ">Dans le panier</h2>") {
+	if body, _ = c.get("/shopping"); !strings.Contains(body, `id="done" aria-labelledby="done-title" hidden`) {
 		t.Error("RG-12: a new need left the line ticked")
 	}
 
@@ -965,6 +966,29 @@ func TestManifest(t *testing.T) {
 		}
 		if _, err := os.Stat("../.." + icon.Src); err != nil {
 			t.Errorf("icon %s: %v", icon.Src, err)
+		}
+	}
+}
+
+func TestStaticVersioning(t *testing.T) {
+	fsys := fstest.MapFS{"css/main.css": {Data: []byte("a{}")}}
+	v1, err := HashFS(fsys)
+	if err != nil || len(v1) != 12 {
+		t.Fatalf("HashFS = %q, %v", v1, err)
+	}
+	fsys["css/main.css"] = &fstest.MapFile{Data: []byte("b{}")}
+	if v2, _ := HashFS(fsys); v2 == v1 {
+		t.Error("the version does not follow the files")
+	}
+	h := StaticHandler(fsys)
+	for target, want := range map[string]string{
+		"/static/css/main.css?v=" + v1: "public, max-age=31536000, immutable",
+		"/static/css/main.css":         "",
+	} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != want {
+			t.Errorf("%s: status %d, Cache-Control %q", target, rec.Code, rec.Header().Get("Cache-Control"))
 		}
 	}
 }
