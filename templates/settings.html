@@ -154,6 +154,31 @@
 </section>
 
 {{ else if eq .View "articles" }}
+<section class="panel" id="add" aria-labelledby="add-title">
+  <h2 class="panel__title" id="add-title">{{ T "settings.articles.add" }}</h2>
+  <form class="add-form" method="post" action="/settings/articles">
+    {{ csrfField }}
+    <div class="add-form__field add-form__field--name">
+      <label for="name">{{ T "settings.name" }}</label>
+      <input id="name" name="name" value="{{ .NewName.Name }}" required maxlength="100" placeholder="{{ T "settings.articles.placeholder" }}"
+        {{ if .Names }}list="article-names" autocomplete="off" data-autocomplete="existing" data-similar="{{ T "autocomplete.similar" }}" data-existing="{{ T "autocomplete.existing" }}"{{ end }}
+        {{ if .NewName.Invalid }}aria-invalid="true" autofocus{{ end }}>
+      {{ if .Names }}<datalist id="article-names">{{ range .Names }}<option value="{{ .Name }}" data-target="name_{{ .ID }}"></option>{{ end }}</datalist>{{ end }}
+    </div>
+    {{ if .Aisles }}
+    <div class="add-form__field">
+      <label for="aisle">{{ T "settings.articles.aisle" }}</label>
+      <select id="aisle" name="aisle">
+        <option value="">{{ T "settings.articles.none" }}</option>
+        {{ range .Aisles }}<option value="{{ .ID }}" {{ if eq .ID $.NewName.Aisle }}selected{{ end }}>{{ .Name }}</option>{{ end }}
+      </select>
+    </div>
+    {{ end }}
+    <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
+    {{ if .NewName.Errors }}<ul class="field-errors" role="alert">{{ range .NewName.Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
+  </form>
+</section>
+
 <section class="panel" aria-labelledby="articles-title">
   <h2 class="panel__title" id="articles-title">{{ T "settings.tab.articles" }}</h2>
   <p class="panel__hint">{{ T "settings.articles.hint" }}{{ if not .Aisles }} <a href="/settings/aisles">{{ T "settings.articles.no_aisle" }}</a>{{ end }}</p>
@@ -194,31 +219,6 @@
   {{ else }}
   <p class="panel__empty">{{ T "settings.articles.empty" }}</p>
   {{ end }}
-</section>
-
-<section class="panel" id="add" aria-labelledby="add-title">
-  <h2 class="panel__title" id="add-title">{{ T "settings.articles.add" }}</h2>
-  <form class="add-form" method="post" action="/settings/articles">
-    {{ csrfField }}
-    <div class="add-form__field add-form__field--name">
-      <label for="name">{{ T "settings.name" }}</label>
-      <input id="name" name="name" value="{{ .NewName.Name }}" required maxlength="100" placeholder="{{ T "settings.articles.placeholder" }}"
-        {{ if .Names }}list="article-names" autocomplete="off" data-autocomplete="existing" data-similar="{{ T "autocomplete.similar" }}" data-existing="{{ T "autocomplete.existing" }}"{{ end }}
-        {{ if .NewName.Invalid }}aria-invalid="true" autofocus{{ end }}>
-      {{ if .Names }}<datalist id="article-names">{{ range .Names }}<option value="{{ .Name }}" data-target="name_{{ .ID }}"></option>{{ end }}</datalist>{{ end }}
-    </div>
-    {{ if .Aisles }}
-    <div class="add-form__field">
-      <label for="aisle">{{ T "settings.articles.aisle" }}</label>
-      <select id="aisle" name="aisle">
-        <option value="">{{ T "settings.articles.none" }}</option>
-        {{ range .Aisles }}<option value="{{ .ID }}" {{ if eq .ID $.NewName.Aisle }}selected{{ end }}>{{ .Name }}</option>{{ end }}
-      </select>
-    </div>
-    {{ end }}
-    <button class="button button--primary" type="submit">{{ T "settings.add_button" }}</button>
-    {{ if .NewName.Errors }}<ul class="field-errors" role="alert">{{ range .NewName.Errors }}<li>{{ . }}</li>{{ end }}</ul>{{ end }}
-  </form>
 </section>
 
 {{ else if eq .View "aisles" }}
