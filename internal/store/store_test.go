@@ -556,3 +556,60 @@ func TestMigrationKeepsIngredients(t *testing.T) {
 		t.Fatalf("delete: err = %v", err)
 	}
 }
+
+// Names differing only by case or accents are duplicates; a typed name finds
+// the article whatever its accents.
+func TestLooseNames(t *testing.T) {
+	ctx := context.Background()
+	s := open(t)
+	pates, err := s.CreateItem(ctx, NewItem(planner.Starch, "Pâtes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateItem(ctx, NewItem(planner.Starch, "PATES")); !errors.Is(err, ErrDuplicateName) {
+		t.Fatalf("create PATES: err = %v", err)
+	}
+	if _, err := s.CreateItem(ctx, NewItem(planner.Dish, "pates")); err != nil {
+		t.Fatalf("another list: err = %v", err)
+	}
+	riz, err := s.CreateItem(ctx, NewItem(planner.Starch, "Riz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.UpdateItems(ctx, planner.Starch, []Item{{ID: pates, Name: "Pâtes", Weight: 5}, {ID: riz, Name: "pates", Weight: 5}})
+	if !errors.Is(err, ErrDuplicateName) {
+		t.Fatalf("rename to pates: err = %v", err)
+	}
+
+	creme, err := s.CreateArticle(ctx, "Crème fraîche", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateArticle(ctx, "creme fraiche", 0); !errors.Is(err, ErrDuplicateName) {
+		t.Fatalf("create creme fraiche: err = %v", err)
+	}
+	if err := s.AddExtra(ctx, "CREME FRAICHE", "1 pot"); err != nil {
+		t.Fatal(err)
+	}
+	articles, _ := s.Articles(ctx)
+	if len(articles) != 1 || articles[0].ID != creme {
+		t.Fatalf("articles = %+v", articles)
+	}
+}
+
+// A bulk save goes through when duplicates were already there.
+func TestLooseNamesKeepOldDuplicates(t *testing.T) {
+	ctx := context.Background()
+	s := open(t)
+	a, _ := s.CreateItem(ctx, NewItem(planner.Vegetable, "Épinards"))
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO items (kind, name, created_at) VALUES ('vegetable', 'epinards', '2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	items, _ := s.Items(ctx, planner.Vegetable)
+	for i := range items {
+		items[i].Weight = 7
+	}
+	if err := s.UpdateItems(ctx, planner.Vegetable, items); err != nil {
+		t.Fatalf("save with old duplicates: err = %v (item %d)", err, a)
+	}
+}

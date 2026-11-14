@@ -68,7 +68,9 @@
     <div class="field field--name">
       <label for="name">{{ T "settings.name" }}</label>
       <input id="name" name="name" value="{{ .New.Name }}" required maxlength="100" placeholder="{{ T (printf "settings.placeholder.%s" .Kind) }}"
+        {{ if .Rows }}list="item-names" autocomplete="off" data-autocomplete="existing" data-similar="{{ T "autocomplete.similar" }}" data-existing="{{ T "autocomplete.existing" }}"{{ end }}
         {{ if index .New.Invalid "name" }}aria-invalid="true" autofocus{{ end }}>
+      {{ if .Rows }}<datalist id="item-names">{{ range .Rows }}<option value="{{ .Name }}" data-target="name_{{ .ID }}"></option>{{ end }}</datalist>{{ end }}
     </div>
     <div class="field field--weight">
       <label for="weight">{{ T "settings.weight" }}</label>
@@ -126,7 +128,7 @@
     {{ csrfField }}
     <div class="add-form__field add-form__field--name">
       <label for="ingredient">{{ T "settings.name" }}</label>
-      <input id="ingredient" name="name" value="{{ .Dish.New }}" required maxlength="100" list="article-suggestions" autocomplete="off"
+      <input id="ingredient" name="name" value="{{ .Dish.New }}" required maxlength="100" list="article-suggestions" autocomplete="off" data-autocomplete
         placeholder="{{ T "settings.dish.placeholder" }}" {{ if .Dish.NewErr }}aria-invalid="true" aria-describedby="ingredient-error" autofocus{{ end }}>
     </div>
     <div class="add-form__field">
@@ -201,7 +203,9 @@
     <div class="add-form__field add-form__field--name">
       <label for="name">{{ T "settings.name" }}</label>
       <input id="name" name="name" value="{{ .NewName.Name }}" required maxlength="100" placeholder="{{ T "settings.articles.placeholder" }}"
+        {{ if .Names }}list="article-names" autocomplete="off" data-autocomplete="existing" data-similar="{{ T "autocomplete.similar" }}" data-existing="{{ T "autocomplete.existing" }}"{{ end }}
         {{ if .NewName.Invalid }}aria-invalid="true" autofocus{{ end }}>
+      {{ if .Names }}<datalist id="article-names">{{ range .Names }}<option value="{{ .Name }}" data-target="name_{{ .ID }}"></option>{{ end }}</datalist>{{ end }}
     </div>
     {{ if .Aisles }}
     <div class="add-form__field">

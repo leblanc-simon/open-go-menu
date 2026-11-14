@@ -1,6 +1,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"sort"
@@ -108,6 +109,10 @@ func (s *Store) query(ctx context.Context, where string, args ...any) ([planner.
 
 // CreateItem inserts an item and returns its identifier.
 func (s *Store) CreateItem(ctx context.Context, it Item) (int64, error) {
+	if _, dup, err := findLoose(ctx, s.db, it.Name,
+		`SELECT id, name FROM items WHERE deleted_at IS NULL AND kind = ?`, it.Kind.Key()); dup || err != nil {
+		return 0, cmp.Or(err, ErrDuplicateName)
+	}
 	res, err := s.db.ExecContext(ctx, `
 		INSERT INTO items (kind, name, weight, weight_spring, weight_summer, weight_autumn, weight_winter, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -126,7 +131,12 @@ func (s *Store) CreateItem(ctx context.Context, it Item) (int64, error) {
 // at once. Either every item is saved or none is; an item of another kind is
 // left untouched.
 func (s *Store) UpdateItems(ctx context.Context, kind planner.Kind, items []Item) error {
+	const live = `SELECT id, name FROM items WHERE deleted_at IS NULL AND kind = ?`
 	return s.tx(ctx, func(tx *sql.Tx) error {
+		before, err := names(ctx, tx, live, kind.Key())
+		if err != nil {
+			return err
+		}
 		// Names are first moved out of the way so that two items may swap
 		// names without tripping the unique index halfway.
 		for _, it := range items {
@@ -149,6 +159,9 @@ func (s *Store) UpdateItems(ctx context.Context, kind planner.Kind, items []Item
 			if err != nil {
 				return err
 			}
+		}
+		if dup, err := renamedClash(ctx, tx, before, live, kind.Key()); dup || err != nil {
+			return cmp.Or(err, ErrDuplicateName)
 		}
 		return nil
 	})
