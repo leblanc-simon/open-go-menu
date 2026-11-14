@@ -2,6 +2,11 @@
 
 const finePointer = window.matchMedia("(pointer: fine)").matches;
 
+// liveClient tells this page's posts apart in the live events of the
+// shopping list: it is not told of its own changes.
+const liveClient = Math.random().toString(36).slice(2, 12).padEnd(8, "0");
+const liveHeaders = { "X-Live-Client": liveClient };
+
 // enhance sets up what the listeners below cannot delegate, on the page and
 // again on each page the script swaps in.
 function enhance(root) {
@@ -270,7 +275,11 @@ async function submitInPlace(form, submitter) {
   main.setAttribute("aria-busy", "true");
   try {
     // getAttribute: a field named "action" shadows form.action.
-    const res = await fetch(form.getAttribute("action"), { method: "POST", body: new FormData(form, submitter) });
+    const res = await fetch(form.getAttribute("action"), {
+      method: "POST",
+      body: new FormData(form, submitter),
+      headers: liveHeaders,
+    });
     const page = new DOMParser().parseFromString(await res.text(), "text/html");
     const next = page.getElementById("main");
     if (!next) {
@@ -316,6 +325,9 @@ async function submitInPlace(form, submitter) {
     form.submit();
   } finally {
     busy = false;
+  }
+  if (liveStale) {
+    liveReload();
   }
 }
 
@@ -463,7 +475,7 @@ async function flush() {
       op.sending = true;
       let res;
       try {
-        res = await fetch(op.url, { method: "POST", body: new URLSearchParams(op.body) });
+        res = await fetch(op.url, { method: "POST", body: new URLSearchParams(op.body), headers: liveHeaders });
       } catch {
         op.sending = false;
         retry = setTimeout(flush, 30000);
@@ -492,7 +504,123 @@ window.addEventListener("online", flush);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     flush();
+    if (!liveSource) {
+      clearTimeout(liveRetry);
+      liveStart();
+    }
   }
+});
+
+// ── Shopping list: live ───────────────────────────────────────────────────
+// Every device of the family showing the list follows it (EF-33): a tick
+// made elsewhere moves the line here too; any other change reloads the
+// list, once nobody is typing in it. The stream says when something was
+// missed — reconnection, a page from the cache — with a "changed".
+
+let liveSource = null;
+let liveSince = "";
+let liveRetry = null;
+let liveStale = false;
+let liveLoading = false;
+
+function liveStart() {
+  const section = document.querySelector("[data-live]");
+  if (!section || !("EventSource" in window)) {
+    return;
+  }
+  liveSince = liveSince || section.dataset.liveSince || "";
+  liveSource = new EventSource(section.dataset.live + "?since=" + encodeURIComponent(liveSince));
+  liveSource.addEventListener("tick", (event) => {
+    liveSince = event.lastEventId;
+    const data = JSON.parse(event.data);
+    // A tick of this device still to send is the one that counts.
+    if (data.client === liveClient || outbox.some((op) => op.url === data.line)) {
+      return;
+    }
+    const form = document.querySelector(`form[data-tick][action="${CSS.escape(data.line)}"]`);
+    if (form) {
+      placeLine(form.closest(".line"), data.ticked);
+    } else {
+      liveReload();
+    }
+  });
+  liveSource.addEventListener("changed", (event) => {
+    liveSince = event.lastEventId;
+    if (JSON.parse(event.data).client !== liveClient) {
+      liveReload();
+    }
+  });
+  liveSource.addEventListener("error", () => {
+    // Refused (session gone, too many pages open): the browser gives up,
+    // this page tries again later.
+    if (liveSource?.readyState === EventSource.CLOSED) {
+      liveSource = null;
+      liveRetry = setTimeout(liveStart, 60000);
+    }
+  });
+}
+
+// typing tells whether a field of root holds something not sent yet.
+function typing(root) {
+  const active = document.activeElement;
+  if (root.contains(active) && active.matches("input:not([type=hidden]), textarea, select")) {
+    return true;
+  }
+  const fields = root.querySelectorAll("input:not([type=hidden]), textarea");
+  if ([...fields].some((field) => field.value !== field.defaultValue)) {
+    return true;
+  }
+  return [...root.querySelectorAll("select")].some((select) => {
+    const initial = [...select.options].findIndex((option) => option.defaultSelected);
+    return select.selectedIndex !== Math.max(0, initial);
+  });
+}
+
+// liveReload replaces the list by the server's, where it was on screen.
+async function liveReload() {
+  liveStale = true;
+  const main = document.getElementById("main");
+  if (liveLoading || busy || !main?.querySelector("[data-live]") || typing(main)) {
+    return;
+  }
+  liveLoading = true;
+  liveStale = false;
+  try {
+    const res = await fetch("/shopping", { headers: liveHeaders });
+    const page = new DOMParser().parseFromString(await res.text(), "text/html");
+    const next = page.getElementById("main");
+    // Not the list (logged out), or the page moved on meanwhile.
+    if (!next?.querySelector("[data-live]") || document.getElementById("main") !== main) {
+      return;
+    }
+    if (busy || typing(main)) {
+      liveStale = true;
+      return;
+    }
+    next.querySelector(":scope > .flash")?.remove();
+    const focused = document.activeElement?.closest("form[data-tick]")?.getAttribute("action");
+    const scroll = window.scrollY;
+    main.replaceWith(next);
+    enhance(next);
+    applyPending(next);
+    window.scrollTo(0, scroll);
+    if (focused) {
+      next.querySelector(`form[data-tick][action="${CSS.escape(focused)}"] .tick`)?.focus({ preventScroll: true });
+    }
+  } catch {
+    liveStale = true; // offline: next time
+  } finally {
+    liveLoading = false;
+  }
+}
+
+// Done typing: the list catches up.
+document.addEventListener("focusout", () => {
+  setTimeout(() => {
+    if (liveStale) {
+      liveReload();
+    }
+  });
 });
 
 // ── Installed application ─────────────────────────────────────────────────
@@ -774,3 +902,4 @@ enhance(document);
 applyPending(document);
 updateOfflineBar();
 flush();
+liveStart();

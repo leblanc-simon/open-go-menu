@@ -146,6 +146,8 @@ func run(cfg config.Config) error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
+	// The live streams of the shopping list would hold the shutdown.
+	srv.RegisterOnShutdown(app.CloseStreams)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

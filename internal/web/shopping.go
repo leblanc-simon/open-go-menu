@@ -45,6 +45,8 @@ type shoppingView struct {
 	ExtraName     string
 	ExtraQuantity string
 	ExtraErr      string
+	// Live is the id of the last change the list shows (EF-33).
+	Live string
 }
 
 // groupView is an aisle of the list. An aisle whose lines are all ticked is
@@ -209,6 +211,8 @@ func (a *App) startShopping(w http.ResponseWriter, r *http.Request) {
 func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from, to time.Time, typed *shoppingView) {
 	ctx := r.Context()
 	loc := a.localizer(r)
+	// Taken before reading the list: a change made meanwhile is caught up.
+	live := a.live.lastID(familyOf(ctx).File)
 	sched, err := storeOf(ctx).Schedule(ctx)
 	if err != nil {
 		a.fail(w, r, err)
@@ -261,6 +265,7 @@ func (a *App) listPage(w http.ResponseWriter, r *http.Request, status int, from,
 
 	v := shoppingView{
 		page:        a.newPage(w, r, loc, "shopping", "shopping.title"),
+		Live:        live,
 		Range:       loc.T("shopping.range", map[string]any{"From": dayMonth(loc, from), "To": dayMonthYear(loc, to)}),
 		Empty:       list.IsEmpty(),
 		Suggestions: suggestions,
@@ -431,8 +436,10 @@ func (a *App) shoppingLine(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		err = storeOf(ctx).Tick(ctx, id, needs)
+		noteTick(ctx, r.URL.Path, true)
 	case "untick":
 		err = storeOf(ctx).Untick(ctx, id)
+		noteTick(ctx, r.URL.Path, false)
 	case "remove":
 		err, flash = storeOf(ctx).RemoveExtra(ctx, id), "flash.extra_removed"
 	case "aisle":

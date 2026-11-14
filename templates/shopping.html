@@ -31,7 +31,7 @@
 </section>
 
 {{ else }}
-<section class="shopping" data-in-place>
+<section class="shopping" data-in-place data-live="/shopping/events" data-live-since="{{ .Live }}">
   <header class="shopping__head">
     <h1 class="page__title">{{ .Range }}</h1>
     <a class="button button--quiet" href="/shopping/new">{{ T "shopping.new" }}</a>

@@ -50,7 +50,12 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin) {
+  // The live events of the shopping list (EF-33) are a stream, never cached.
+  if (
+    request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    request.headers.get("Accept") === "text/event-stream"
+  ) {
     return;
   }
   if (url.pathname.startsWith("/static/") && url.searchParams.has("v")) {

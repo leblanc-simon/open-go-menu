@@ -22,6 +22,7 @@ const (
 	ctxStore ctxKey = iota
 	ctxFamily
 	ctxRelease
+	ctxLive
 )
 
 // SessionTTL is the lifetime of a session, slid at every visit: the longest
@@ -79,7 +80,10 @@ func (a *App) protect(h http.HandlerFunc) http.Handler {
 		ctx = context.WithValue(ctx, ctxStore, st)
 		ctx = context.WithValue(ctx, ctxFamily, fam)
 		ctx = context.WithValue(ctx, ctxRelease, release)
+		note := &liveNote{}
+		ctx = context.WithValue(ctx, ctxLive, note)
 		h(w, r.WithContext(ctx))
+		a.publishNote(r, fam.File, note)
 	}))
 }
 
@@ -370,6 +374,8 @@ func (a *App) changePassword(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	// The other devices may have lost their session.
+	a.endStreams(r.Context())
 	redirect(w, r, "/account", "flash.password_changed")
 }
 
@@ -381,6 +387,8 @@ func (a *App) logoutEverywhere(w http.ResponseWriter, r *http.Request) {
 	}
 	clearSite(w)
 	a.Auth.Logout(w, r)
+	// The other devices may have lost their session.
+	a.endStreams(r.Context())
 	redirect(w, r, "/login", "flash.logged_out_everywhere")
 }
 
@@ -414,5 +422,7 @@ func (a *App) deleteFamily(w http.ResponseWriter, r *http.Request) {
 	}
 	clearSite(w)
 	a.Auth.Logout(w, r)
+	// The other devices may have lost their session.
+	a.endStreams(r.Context())
 	redirect(w, r, "/login", "flash.family_deleted")
 }

@@ -39,6 +39,7 @@ type App struct {
 	pages map[string]*template.Template
 	login *authx.Handlers
 	guard *loginGuard
+	live  *hub
 }
 
 // Options are the account settings of the application.
@@ -64,7 +65,7 @@ func New(templateFS fs.FS, accts *accounts.Store, fams *families.Registry, auth 
 	}
 	a := &App{Accounts: accts, Families: fams, Auth: auth, Options: opts,
 		I18n: bundle, CSRF: csrf, Logger: logger, Now: time.Now,
-		pages: make(map[string]*template.Template, len(pageNames)), guard: newLoginGuard()}
+		pages: make(map[string]*template.Template, len(pageNames)), guard: newLoginGuard(), live: newHub()}
 	// asset returns the versioned URL of a static file.
 	stubs["asset"] = func(path string) string {
 		if a.AssetVersion == "" {
@@ -136,6 +137,7 @@ func (a *App) Routes(mux *http.ServeMux) {
 		"POST /shopping":                                         a.startShopping,
 		"POST /shopping/extras":                                  a.addExtra,
 		"POST /shopping/articles/{id}":                           a.shoppingLine,
+		"GET /shopping/events":                                   a.shoppingEvents,
 		"GET /account":                                           a.account,
 		"POST /account/password":                                 a.changePassword,
 		"POST /account/logout-all":                               a.logoutEverywhere,
@@ -240,5 +242,8 @@ func redirect(w http.ResponseWriter, r *http.Request, to, flashKey string) {
 	if flashKey != "" {
 		setFlash(w, flashKey)
 	}
+	// A post that ends here made its change: the other pages of the family
+	// hear of it (EF-33).
+	noteDone(r)
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }

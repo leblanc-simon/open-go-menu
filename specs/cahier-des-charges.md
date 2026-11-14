@@ -98,6 +98,7 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | EF-22 | Une liste de courses couvre une **période** (1 à 31 jours). Sans liste, ou par « Nouvelle liste », la page propose la **dernière semaine entièrement prévue** à partir de la semaine en cours (tous ses repas planifiés remplis) ; sinon, ou au choix, on saisit les dates de début et de fin. Une nouvelle liste **remplace** la précédente, ses cases cochées et ses ajouts : les courses sont ponctuelles. | I |
 | EF-23 | On peut **ajouter à la main** un article à la liste (nom avec suggestions, quantité libre), puis le retirer. Aucun ajout n'est permanent ni récurrent. | I |
 | EF-24 | Chaque ligne montre l'article, et pour chaque besoin la quantité éventuelle, le plat dont il est l'ingrédient, le jour et le repas (ou « Ajouté à la main »). Une **case** met l'article dans le panier : la ligne passe **aussitôt** en fin de liste, atténuée, sous « Dans le panier » (et retourne dans son rayon si on la décoche), sans attendre le serveur ; avec ou sans réseau, la coche est gardée sur l'appareil et envoyée dès que possible. Un article sans rayon peut être rangé depuis la liste. Les plats complets planifiés sans ingrédients sont signalés en tête de liste. | I |
+| EF-33 | La liste est **partagée en direct** : quand plusieurs appareils de la famille l'affichent, une case cochée ou décochée sur l'un déplace aussitôt la ligne sur les autres, sans rechargement ; tout autre changement de la famille (ajout, rangement, planning, nouvelle liste…) recharge la liste des autres appareils, une fois la saisie en cours terminée. Un appareil qui a manqué des changements (réseau coupé, copie hors ligne) se remet à jour en se reconnectant. Sans JavaScript, la liste reste à jour à chaque affichage. | I |
 
 ### 3.5 Comptes et familles
 
@@ -233,6 +234,7 @@ Routes :
 | POST | `/shopping` | Crée la liste (`from`, `to`) |
 | POST | `/shopping/extras` | Ajout à la main (`name`, `quantity`) |
 | POST | `/shopping/articles/{id}` | `action=tick&needs=…`, `untick`, `remove` (ajout à la main), `aisle&aisle=…` |
+| GET | `/shopping/events` | Flux d'événements (`text/event-stream`) des changements de la famille, pour la liste en direct (EF-33) ; `?since=` ou `Last-Event-ID` : dernier changement connu |
 
 ## 9. Modèle de données
 
@@ -313,5 +315,6 @@ devient -10.
 | TR-25 | Supprimer la famille (mot de passe et case cochée) efface sa base ; l'identifiant ne se connecte plus et peut être repris. |
 | TR-26 | `purge` sur une famille vue il y a 13 mois et une autre vue hier : seule la première est supprimée ; `-dry-run` ne supprime rien. |
 | TR-28 | Cocher une ligne de la liste la fait passer immédiatement dans « Dans le panier » ; hors ligne, cocher deux lignes et recharger : elles restent cochées ; au retour du réseau, le serveur les a. |
+| TR-30 | Deux appareils de la même famille sur la liste : cocher une ligne sur l'un la fait passer dans « Dans le panier » sur l'autre en moins d'une seconde ; un ajout à la main sur l'un apparaît sur l'autre. Une autre famille ne voit rien passer. |
 | TR-29 | « Pâtes » existe : taper « pates » dans l'ajout de féculent la propose et signale un nom proche ; l'ajouter est refusé. Ajouter « creme fraiche » à la liste quand « Crème fraîche » existe reprend cet article. |
 | TR-27 | `create-family -from` sur la base d'une installation mono-foyer : la famille retrouve ses éléments ; la base d'origine n'est pas modifiée. |

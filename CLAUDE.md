@@ -88,3 +88,13 @@ Ponctuelle : une seule liste à la fois, sur une période ; une nouvelle liste e
 ajouts. Calculée à chaque affichage depuis le planning (seuls les repas planifiés, EF-13). Les
 formulaires des sections `[data-in-place]` (semaine, liste) sont postés en `fetch` par le JS.
 Ne pas modifier la table `items` : ce qui concerne l'achat vit dans les tables d'articles.
+
+**En direct** (EF-33, `internal/web/live.go`) : Server-Sent Events sur `/shopping/events`, un
+hub en mémoire par famille (un seul processus). Tout POST d'une famille qui finit par
+`redirect` publie un `changed` (via la note posée par `protect`), une coche publie un `tick`
+(ligne + état). Chaque événement a un id `boot-seq` ; la page porte l'id qu'elle montre
+(`data-live-since`) et le flux renvoie un `changed` s'il en a manqué. L'en-tête `X-Live-Client`
+évite à une page de recevoir ses propres changements. Le flux libère la base de la famille
+dès l'ouverture, lève les délais du serveur et se ferme à l'arrêt (`RegisterOnShutdown`) ou
+quand les sessions changent (`endStreams`). Le service worker ne touche pas aux
+`text/event-stream`. Derrière nginx : `X-Accel-Buffering: no` est envoyé.
