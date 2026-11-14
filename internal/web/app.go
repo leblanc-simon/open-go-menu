@@ -47,6 +47,12 @@ type Options struct {
 	Signup         string // config.SignupOpen, SignupInvite or SignupClosed
 	InactiveMonths int
 	BcryptCost     int
+
+	// FamilyInvites lets the families make invitation codes (EF-34): each
+	// valid for InviteTTL, at most InviteMax pending per family.
+	FamilyInvites bool
+	InviteTTL     time.Duration
+	InviteMax     int
 }
 
 // pageNames lists the templates rendered inside the layout.
@@ -142,6 +148,8 @@ func (a *App) Routes(mux *http.ServeMux) {
 		"POST /account/password":                                 a.changePassword,
 		"POST /account/logout-all":                               a.logoutEverywhere,
 		"POST /account/delete":                                   a.deleteFamily,
+		"POST /account/invites":                                  a.createInvite,
+		"POST /account/invites/{id}/revoke":                      a.revokeInvite,
 	} {
 		mux.Handle(pattern, a.protect(h))
 	}

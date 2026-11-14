@@ -221,6 +221,30 @@ account:
     définitif.
   delete_confirm: Je comprends que tout sera supprimé définitivement.
   delete_submit: Supprimer la famille
+  invite_title: Inviter une famille
+  invite_hint: Un code permet à une autre famille de créer son compte sur ce serveur ; il ne sert qu'une fois.
+  invite_validity:
+    one: "Il reste valable {{.Count}} jour."
+    other: "Il reste valable {{.Count}} jours."
+  invite_max:
+    one: "Un seul code peut être en attente à la fois."
+    other: "{{.Count}} codes au plus peuvent être en attente à la fois."
+  invite_generate: Générer un code d'invitation
+  invite_full:
+    one: "Votre code est encore en attente : révoquez-le pour en générer un autre."
+    other: "Vos {{.Count}} codes sont encore en attente : révoquez-en un pour en générer un autre."
+  invite_new_hint: Notez ce code ou envoyez le lien maintenant, il ne sera plus affiché.
+  invite_link: Lien d'inscription
+  invite_copy: Copier le lien
+  invite_copied: Lien copié
+  invite_share: Partager
+  invite_share_text: "Votre code d'invitation : {{.Code}}"
+  invite_pending_title: Codes en attente
+  invite_pending_item: "Créé le {{.Created}}, valable jusqu'au {{.Expires}}"
+  invite_revoke: Révoquer
+  invite_revoke_label: "Révoquer le code créé le {{.Created}}"
+  invite_invited_title: Familles invitées
+  invite_invited_item: "{{.Login}}, inscrite le {{.Since}}"
 
 shopping:
   title: Courses
@@ -365,6 +389,8 @@ flash:
   family_created: Famille créée. Commencez par remplir vos listes.
   password_changed: Mot de passe changé. Les autres appareils sont déconnectés.
   family_deleted: La famille et toutes ses données sont supprimées.
+  invite_revoked: Code révoqué.
+  invite_limit: Trop de codes en attente ; révoquez-en un d'abord.
 
 error:
   title: Erreur

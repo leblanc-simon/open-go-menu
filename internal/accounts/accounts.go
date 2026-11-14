@@ -33,6 +33,9 @@ var (
 	ErrLoginTaken = errors.New("accounts: login taken")
 	// ErrInvite is returned for an unknown, used or expired invitation.
 	ErrInvite = errors.New("accounts: invalid invitation")
+	// ErrInviteLimit is returned when a family has as many pending codes as
+	// it may.
+	ErrInviteLimit = errors.New("accounts: too many pending invitations")
 	// ErrNotFound is returned for an unknown family.
 	ErrNotFound = errors.New("accounts: not found")
 )
@@ -192,17 +195,6 @@ func (s *Store) CreateFamily(ctx context.Context, login, passwordHash, invite st
 	}
 	defer tx.Rollback()
 
-	if invite != "" {
-		res, err := tx.ExecContext(ctx, `
-			UPDATE invites SET used_at = ? WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?`,
-			format(now), hashCode(invite), format(now))
-		if err != nil {
-			return f, err
-		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			return f, ErrInvite
-		}
-	}
 	// The users table is authx's; its sqlstore cannot insert within a
 	// transaction, hence the statement here.
 	res, err := tx.ExecContext(ctx, `INSERT INTO users (email, password_hash) VALUES (?, ?)`, login, passwordHash)
@@ -218,6 +210,17 @@ func (s *Store) CreateFamily(ctx context.Context, login, passwordHash, invite st
 	if _, err := tx.ExecContext(ctx, `INSERT INTO families (user_id, file, created_at, last_active_at) VALUES (?, ?, ?, ?)`,
 		f.UserID, f.File, format(now), format(now)); err != nil {
 		return f, err
+	}
+	if invite != "" {
+		res, err := tx.ExecContext(ctx, `
+			UPDATE invites SET used_at = ?, used_by = ? WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?`,
+			format(now), f.UserID, hashCode(invite), format(now))
+		if err != nil {
+			return f, err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return f, ErrInvite
+		}
 	}
 	return f, tx.Commit()
 }
@@ -361,9 +364,154 @@ func (s *Store) deleteFamily(ctx context.Context, userID int64, before *time.Tim
 // inviteAlphabet leaves out the letters and digits read alike (0/O, 1/I/L).
 const inviteAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
-// CreateInvite returns a new single-use invitation code, valid for ttl. Only
-// its hash is kept.
+// CreateInvite returns a new single-use invitation code of the
+// administrator, valid for ttl. Only its hash is kept.
 func (s *Store) CreateInvite(ctx context.Context, ttl time.Duration, now time.Time) (string, error) {
+	code, err := newInviteCode()
+	if err != nil {
+		return "", err
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (?, ?, ?)`,
+		hashCode(code), format(now), format(now.Add(ttl)))
+	return code, err
+}
+
+// CreateFamilyInvite returns a new single-use invitation code made by a
+// family, valid for ttl (EF-34). ErrInviteLimit if the family already has
+// max codes pending.
+func (s *Store) CreateFamilyInvite(ctx context.Context, by int64, ttl time.Duration, max int, now time.Time) (string, error) {
+	code, err := newInviteCode()
+	if err != nil {
+		return "", err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	var pending int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM invites WHERE created_by = ? AND used_at IS NULL AND expires_at > ?`,
+		by, format(now)).Scan(&pending); err != nil {
+		return "", err
+	}
+	if pending >= max {
+		return "", ErrInviteLimit
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO invites (code_hash, created_at, expires_at, created_by) VALUES (?, ?, ?, ?)`,
+		hashCode(code), format(now), format(now.Add(ttl)), by); err != nil {
+		return "", err
+	}
+	return code, tx.Commit()
+}
+
+// Invite is a pending code of a family, without the code itself.
+type Invite struct {
+	ID        int64
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+// PendingInvites returns the codes of a family still to be used, oldest
+// first.
+func (s *Store) PendingInvites(ctx context.Context, by int64, now time.Time) ([]Invite, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT rowid, created_at, expires_at FROM invites
+		WHERE created_by = ? AND used_at IS NULL AND expires_at > ? ORDER BY created_at, rowid`,
+		by, format(now))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Invite
+	for rows.Next() {
+		var inv Invite
+		var created, expires string
+		if err := rows.Scan(&inv.ID, &created, &expires); err != nil {
+			return nil, err
+		}
+		inv.CreatedAt, _ = time.Parse(timeLayout, created)
+		inv.ExpiresAt, _ = time.Parse(timeLayout, expires)
+		out = append(out, inv)
+	}
+	return out, rows.Err()
+}
+
+// RevokeInvite deletes a pending code of a family; ErrNotFound if it has no
+// such code.
+func (s *Store) RevokeInvite(ctx context.Context, by, id int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM invites WHERE rowid = ? AND created_by = ? AND used_at IS NULL`, id, by)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// Invited is a family that signed up with the code of another.
+type Invited struct {
+	Login     string
+	CreatedAt time.Time
+}
+
+// InvitedBy returns the families that signed up with a code of a family,
+// oldest first.
+func (s *Store) InvitedBy(ctx context.Context, by int64) ([]Invited, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT u.email, f.created_at FROM invites i
+		JOIN users u ON u.id = i.used_by JOIN families f ON f.user_id = u.id
+		WHERE i.created_by = ? ORDER BY f.created_at, u.email`, by)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Invited
+	for rows.Next() {
+		var inv Invited
+		var created string
+		if err := rows.Scan(&inv.Login, &created); err != nil {
+			return nil, err
+		}
+		inv.CreatedAt, _ = time.Parse(timeLayout, created)
+		out = append(out, inv)
+	}
+	return out, rows.Err()
+}
+
+// Inviters returns the login of the family that invited each family, by
+// user id; the families invited by the administrator are not there.
+func (s *Store) Inviters(ctx context.Context) (map[int64]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT i.used_by, u.email FROM invites i JOIN users u ON u.id = i.created_by WHERE i.used_by IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var login string
+		if err := rows.Scan(&id, &login); err != nil {
+			return nil, err
+		}
+		out[id] = login
+	}
+	return out, rows.Err()
+}
+
+// PurgeInvites deletes the codes expired unused.
+func (s *Store) PurgeInvites(ctx context.Context, now time.Time) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM invites WHERE used_at IS NULL AND expires_at <= ?`, format(now))
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+// newInviteCode draws a code of 12 characters, in groups of 4.
+func newInviteCode() (string, error) {
 	// Bytes beyond the last whole multiple of the alphabet are drawn again,
 	// so that every character is as likely.
 	const limit = 256 / len(inviteAlphabet) * len(inviteAlphabet)
@@ -382,9 +530,7 @@ func (s *Store) CreateInvite(ctx context.Context, ttl time.Duration, now time.Ti
 		code.WriteByte(inviteAlphabet[int(b[0])%len(inviteAlphabet)])
 		n++
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO invites (code_hash, created_at, expires_at) VALUES (?, ?, ?)`,
-		hashCode(code.String()), format(now), format(now.Add(ttl)))
-	return code.String(), err
+	return code.String(), nil
 }
 
 // NormalizeInvite makes a typed code comparable: upper case, without

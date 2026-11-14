@@ -72,6 +72,9 @@ families:
   data_dir: data           # relatif au répertoire courant : /var/lib/open-go-menu/data
   signup: invite           # open | invite | closed
   inactive_months: 12
+  family_invites: false    # true : les familles invitent depuis leur Compte
+  family_invite_days: 7
+  family_invite_max: 3
 
 auth:
   cookie_secure: auto      # Secure dès que nginx transmet X-Forwarded-Proto: https
@@ -99,6 +102,9 @@ défaut s'appliquent. `open-go-menu --help` liste tout.
 | `families.data_dir` | `OGM_DATA_DIR` | `data` | Répertoire de `accounts.db` et de `families/` ; un chemin relatif part du répertoire courant |
 | `families.signup` | `OGM_SIGNUP` | `invite` | `open` (tout le monde), `invite` (code de `open-go-menu invite`), `closed` (seulement `create-family`) |
 | `families.inactive_months` | `OGM_INACTIVE_MONTHS` | `12` | Mois sans visite avant suppression par `purge` |
+| `families.family_invites` | `OGM_FAMILY_INVITES` | `false` | Avec `signup: invite`, les familles génèrent des codes depuis leur Compte |
+| `families.family_invite_days` | `OGM_FAMILY_INVITE_DAYS` | `7` | Validité, en jours, d'un code généré par une famille |
+| `families.family_invite_max` | `OGM_FAMILY_INVITE_MAX` | `3` | Codes en attente au plus par famille |
 | `auth.cookie_name` | `OGM_AUTH_COOKIE_NAME` | `session` | Nom du cookie de session |
 | `auth.cookie_secure` | `OGM_AUTH_COOKIE_SECURE` | `auto` | Attribut `Secure` des cookies de session et CSRF : `auto`, `on`, `off` |
 | `auth.bcrypt_cost` | `OGM_AUTH_BCRYPT_COST` | `12` | Coût bcrypt des mots de passe |
@@ -179,18 +185,22 @@ ogm invite                         # code d'invitation à usage unique, 30 jours
 ogm invite -days 7
 ogm create-family dupont           # crée la famille, affiche son mot de passe
 ogm reset-password dupont          # nouveau mot de passe, tous les appareils déconnectés
-ogm families                       # familles et date de dernière visite
+ogm families                       # familles, dernière visite, qui les a invitées
 ogm purge -dry-run                 # familles qui seraient supprimées
 ```
 
 - **Inscription** (`families.signup`) : avec `invite`, on crée une famille sur
   `/signup` avec un code donné par `ogm invite` ; avec `open`, sans code ; avec
-  `closed`, seul `ogm create-family` en crée.
+  `closed`, seul `ogm create-family` en crée. Avec `family_invites: true` (et
+  `signup: invite`), chaque famille génère aussi des codes depuis son Compte et
+  envoie le lien d'inscription, qui préremplit le code ; `ogm families` dit qui a
+  invité qui.
 - **Mot de passe oublié** : aucun e-mail n'existe, la seule issue est
   `ogm reset-password`. Transmettre le mot de passe affiché à la famille, qui le
   change ensuite dans son Compte.
 - **Purge** : `ogm purge` supprime les familles sans aucune visite depuis
-  `inactive_months` mois (identifiant et base), et les sessions expirées. Le timer
+  `inactive_months` mois (identifiant et base), les sessions expirées et les codes
+  d'invitation expirés. Le timer
   livré la lance chaque nuit :
 
   ```bash

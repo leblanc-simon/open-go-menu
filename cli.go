@@ -35,9 +35,10 @@ const usage = `Commands:
                                         -from imports the database of a single-family install
   reset-password <login>                print a new password; every device is logged out
   invite [-days 30]                     print a single-use invitation code
-  families                              list the families and their last visit
+  families                              list the families, their last visit and who invited them
   purge [-dry-run]                      delete the families without any visit for
-                                        families.inactive_months, and the expired sessions
+                                        families.inactive_months, the expired sessions
+                                        and the invitation codes expired unused
 `
 
 // command runs an administration command (EF-30, EF-31).
@@ -131,8 +132,16 @@ func command(cfg config.Config, args []string, out io.Writer) error {
 		if err != nil {
 			return err
 		}
+		inviters, err := accts.Inviters(ctx)
+		if err != nil {
+			return err
+		}
 		for _, f := range list {
-			fmt.Fprintf(out, "%-40s created %s, last visit %s\n", f.Login, f.CreatedAt.Local().Format("2006-01-02"), f.LastActive.Local().Format("2006-01-02"))
+			fmt.Fprintf(out, "%-40s created %s, last visit %s", f.Login, f.CreatedAt.Local().Format("2006-01-02"), f.LastActive.Local().Format("2006-01-02"))
+			if by, ok := inviters[f.UserID]; ok {
+				fmt.Fprintf(out, ", invited by %s", by)
+			}
+			fmt.Fprintln(out)
 		}
 
 	case "purge":
@@ -173,7 +182,11 @@ func command(cfg config.Config, args []string, out io.Writer) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "%d families deleted, %d expired sessions deleted\n", deleted, n)
+			codes, err := accts.PurgeInvites(ctx, now)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(out, "%d families deleted, %d expired sessions deleted, %d expired invitation codes deleted\n", deleted, n, codes)
 		}
 
 	default:

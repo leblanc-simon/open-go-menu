@@ -109,8 +109,9 @@ et poissons**, **Légumes** — et un onglet **Repas**.
 | EF-27 | **Connexion permanente** : la session glisse à chaque visite et dure 400 jours (plafond des navigateurs) ; elle ne prend fin que par « Se déconnecter » (cet appareil seulement) ou par la déconnexion de tous les appareils. La déconnexion efface aussi les pages gardées hors ligne (EI-06). | O |
 | EF-28 | Page **Compte** : identifiant et date de création, se déconnecter, changer le mot de passe (l'actuel est demandé ; les autres appareils sont déconnectés, celui-ci reste connecté), déconnecter tous les appareils. | O |
 | EF-29 | **Suppression de la famille** depuis le Compte, confirmée par le mot de passe et une case : identifiant, sessions et base sont supprimés définitivement. | I |
-| EF-30 | **Purge** : la commande `open-go-menu purge` supprime les familles sans aucune visite depuis `families.inactive_months` mois (12 par défaut), et les sessions expirées ; un timer systemd la lance chaque nuit. Une visite est toute page vue par la famille connectée, notée au plus une fois par heure. `-dry-run` liste sans supprimer. | I |
-| EF-31 | **Administration** en ligne de commande : `create-family [-from base.db] <identifiant>` (affiche le mot de passe généré ; `-from` importe la base d'une installation mono-foyer, sans la modifier), `reset-password <identifiant>` (nouveau mot de passe affiché, tous les appareils déconnectés), `invite [-days 30]` (code à usage unique), `families` (liste et dernières visites). | I |
+| EF-30 | **Purge** : la commande `open-go-menu purge` supprime les familles sans aucune visite depuis `families.inactive_months` mois (12 par défaut), les sessions expirées et les codes d'invitation expirés ; un timer systemd la lance chaque nuit. Une visite est toute page vue par la famille connectée, notée au plus une fois par heure. `-dry-run` liste sans supprimer. | I |
+| EF-31 | **Administration** en ligne de commande : `create-family [-from base.db] <identifiant>` (affiche le mot de passe généré ; `-from` importe la base d'une installation mono-foyer, sans la modifier), `reset-password <identifiant>` (nouveau mot de passe affiché, tous les appareils déconnectés), `invite [-days 30]` (code à usage unique), `families` (liste, dernières visites et famille qui a invité). | I |
+| EF-34 | **Invitation par les familles** (réglage `families.family_invites`, avec `signup: invite`, désactivé par défaut) : depuis son Compte, toute famille, invitée ou non, génère un code à usage unique valable `family_invite_days` jours (7 par défaut), dans la limite de `family_invite_max` codes en attente (3 par défaut). Le code et son lien d'inscription (`/signup?invite=…`, qui préremplit le code) ne s'affichent qu'une fois, avec Copier et Partager quand l'appareil le permet. Le Compte liste les codes en attente (dates de création et d'expiration, Révoquer) et les familles inscrites avec un code de la famille. Les codes d'une famille supprimée disparaissent ; les familles qu'elle a invitées restent. `families` indique qui a invité chaque famille ; `purge` supprime les codes expirés. | I |
 
 ### 3.3 Règles de tirage
 
@@ -205,6 +206,8 @@ Routes :
 | POST | `/account/password` | Changement de mot de passe (`current`, `password`, `password_confirm`) |
 | POST | `/account/logout-all` | Déconnexion de tous les appareils |
 | POST | `/account/delete` | Suppression de la famille (`password`, `confirm=yes`) |
+| POST | `/account/invites` | Génère un code d'invitation de la famille, affiché une fois sur le Compte (EF-34) |
+| POST | `/account/invites/{id}/revoke` | Révoque un code en attente de la famille |
 | GET | `/` | Semaine (`?week=AAAA-MM-JJ` : n'importe quel jour de la semaine voulue) |
 | GET | `/manifest.webmanifest` | Manifeste de l'application installable, dans la langue de la requête (EI-06) |
 | GET | `/sw.js` | Service worker, servi à la racine pour couvrir tout le site (hors limiteur, `no-cache`) |
@@ -245,7 +248,9 @@ users       (id, email, password_hash, role, is_active, must_change_pwd, created
              last_login)                -- table d'authx ; email = identifiant de la famille
 sessions    (token, user_id → users.id, purpose, expires_at, created_at, user_agent, ip)
 families    (user_id PRIMARY KEY → users.id, file UNIQUE, created_at, last_active_at)
-invites     (code_hash PRIMARY KEY, created_at, expires_at, used_at)
+invites     (code_hash PRIMARY KEY, created_at, expires_at, used_at,
+             created_by → users.id ON DELETE CASCADE,   -- NULL : code de l'administrateur
+             used_by → users.id ON DELETE SET NULL)     -- famille inscrite avec le code (EF-34)
 ```
 
 Base de chaque famille, `families/<file>.db` :
@@ -310,6 +315,7 @@ devient -10.
 | TR-20 | Sans session, toute page de la famille redirige vers `/login` ; après connexion, on revient à la page demandée. |
 | TR-21 | Une famille B ne voit ni ne peut supprimer un élément de la famille A, même en connaissant son identifiant numérique. |
 | TR-22 | Six connexions ratées sur un identifiant → la sixième, même avec le bon mot de passe, répond 429 ; elle passe 15 minutes plus tard. |
+| TR-31 | Avec `family_invites: true` : générer un code depuis le Compte l'affiche une fois avec son lien ; au-delà de `family_invite_max` codes en attente, le bouton disparaît. Le lien préremplit le code ; la famille inscrite apparaît dans le Compte de celle qui l'a invitée et peut inviter à son tour. Révoquer un code le rend inutilisable ; une famille ne peut pas révoquer celui d'une autre (404). Réglage désactivé : ni section ni route. |
 | TR-23 | Inscription en mode `invite` : sans code, ou avec un code déjà utilisé ou expiré, refusée ; avec un code valide (saisi en minuscules), la famille est créée et connectée. En mode `closed`, `/signup` répond 404. |
 | TR-24 | Changer le mot de passe déconnecte l'autre appareil connecté, pas celui-ci ; « Déconnecter tous les appareils » les déconnecte tous. |
 | TR-25 | Supprimer la famille (mot de passe et case cochée) efface sa base ; l'identifiant ne se connecte plus et peut être repris. |

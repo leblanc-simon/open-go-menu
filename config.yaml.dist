@@ -37,6 +37,12 @@ families:
   # Une famille sans aucune visite depuis ce nombre de mois est supprimée par
   # `open-go-menu purge` (à lancer chaque jour, cf. deploy/).
   inactive_months: 12
+  # Avec signup: invite, les familles peuvent aussi générer des codes depuis
+  # leur Compte : chacun valable family_invite_days jours, au plus
+  # family_invite_max en attente par famille.
+  family_invites: false
+  family_invite_days: 7
+  family_invite_max: 3
 
 auth:
   # La session glisse à chaque visite et dure 400 jours : on reste connecté

@@ -220,6 +220,30 @@ account:
     way back.
   delete_confirm: I understand that everything will be deleted for good.
   delete_submit: Delete the family
+  invite_title: Invite a family
+  invite_hint: A code lets another family create its account on this server; it can be used only once.
+  invite_validity:
+    one: "It stays valid for {{.Count}} day."
+    other: "It stays valid for {{.Count}} days."
+  invite_max:
+    one: "Only one code can be pending at a time."
+    other: "At most {{.Count}} codes can be pending at a time."
+  invite_generate: Make an invitation code
+  invite_full:
+    one: "Your code is still pending: revoke it to make another one."
+    other: "Your {{.Count}} codes are still pending: revoke one to make another one."
+  invite_new_hint: Write this code down or send the link now, it will not be shown again.
+  invite_link: Signup link
+  invite_copy: Copy the link
+  invite_copied: Link copied
+  invite_share: Share
+  invite_share_text: "Your invitation code: {{.Code}}"
+  invite_pending_title: Pending codes
+  invite_pending_item: "Made on {{.Created}}, valid until {{.Expires}}"
+  invite_revoke: Revoke
+  invite_revoke_label: "Revoke the code made on {{.Created}}"
+  invite_invited_title: Invited families
+  invite_invited_item: "{{.Login}}, signed up on {{.Since}}"
 
 shopping:
   title: Shopping
@@ -364,6 +388,8 @@ flash:
   family_created: Family created. Start by filling your lists.
   password_changed: Password changed. The other devices are logged out.
   family_deleted: The family and all its data are deleted.
+  invite_revoked: Code revoked.
+  invite_limit: Too many pending codes; revoke one first.
 
 error:
   title: Error

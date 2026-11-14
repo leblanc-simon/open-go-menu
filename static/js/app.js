@@ -14,6 +14,18 @@ function enhance(root) {
   root.querySelectorAll("[data-autosubmit-fallback]").forEach((button) => {
     button.hidden = true;
   });
+  // The link of an invitation: copied, or handed to the sharing of the
+  // device, where the browser can.
+  if (navigator.clipboard && window.isSecureContext) {
+    root.querySelectorAll("[data-copy]").forEach((button) => {
+      button.hidden = false;
+    });
+  }
+  if (navigator.share) {
+    root.querySelectorAll("[data-share]").forEach((button) => {
+      button.hidden = false;
+    });
+  }
   if (finePointer) {
     root.querySelectorAll(".meal[data-movable]").forEach((meal) => {
       meal.draggable = true;
@@ -25,6 +37,26 @@ function enhance(root) {
     });
   }
 }
+
+document.addEventListener("click", (event) => {
+  const copy = event.target.closest("button[data-copy]");
+  if (copy) {
+    navigator.clipboard.writeText(copy.dataset.copy).then(() => {
+      const label = copy.textContent;
+      copy.textContent = copy.dataset.copied;
+      setTimeout(() => {
+        copy.textContent = label;
+      }, 2000);
+    }, () => {});
+    return;
+  }
+  const share = event.target.closest("button[data-share]");
+  if (share) {
+    navigator.share({ text: share.dataset.shareText, url: share.dataset.share }).catch(() => {
+      // Cancelled.
+    });
+  }
+});
 
 document.addEventListener("change", (event) => {
   if (event.target.matches("select[data-autosubmit]")) {

@@ -65,8 +65,14 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// A page marked no-store (one showing an invitation code) is never kept.
 function cacheable(response) {
-  return response.ok && response.type === "basic" && !response.redirected;
+  return (
+    response.ok &&
+    response.type === "basic" &&
+    !response.redirected &&
+    !/no-store/.test(response.headers.get("Cache-Control") || "")
+  );
 }
 
 // asset serves a versioned static file, from the cache when it is there.

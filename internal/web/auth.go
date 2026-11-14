@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"regexp"
+	"strconv"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -154,10 +156,33 @@ type authView struct {
 	Signup string // the signup mode
 	Months int    // inactivity before deletion
 
+	// The signup page: the code of the link followed, or the one typed.
+	Invite string
+
 	// The account page.
 	Since       string
 	PasswordErr string
 	DeleteErr   string
+	Invites     *invitesView // nil when the families may not invite
+}
+
+// invitesView is the invitation section of the account page (EF-34).
+type invitesView struct {
+	Validity int // days
+	Max      int
+	Full     bool // as many codes pending as allowed
+	// The code just made, shown this once.
+	Code string
+	Link string
+	// The codes still to be used, and the families who used one.
+	Pending []pendingInvite
+	Invited []string
+}
+
+type pendingInvite struct {
+	ID          int64
+	Text        string
+	RevokeLabel string
 }
 
 // loginRenderer renders the login form for authx. The message of a failed
@@ -182,6 +207,13 @@ func (a *App) renderAuth(w http.ResponseWriter, r *http.Request, status int, vie
 	v := authView{
 		page: a.newPage(w, r, loc, view, title), View: view, Next: next, Login: login, Error: msg,
 		Signup: a.Options.Signup, Months: a.Options.InactiveMonths,
+	}
+	if view == "signup" && a.Options.Signup == config.SignupInvite {
+		// The link of an invitation fills the code in (EF-34).
+		v.Invite = r.FormValue("invite")
+		if len(v.Invite) > maxInviteLength {
+			v.Invite = ""
+		}
 	}
 	a.render(w, r, loc, status, "account", v)
 }
@@ -336,7 +368,118 @@ func (a *App) accountPage(w http.ResponseWriter, r *http.Request, status int, pa
 		Since:       dayMonthYear(loc, fam.CreatedAt.In(a.Now().Location())),
 		PasswordErr: passwordErr, DeleteErr: deleteErr,
 	}
+	if a.Options.FamilyInvites {
+		inv, err := a.invitesOf(w, r, fam)
+		if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		v.Invites = inv
+	}
 	a.render(w, r, loc, status, "account", v)
+}
+
+// ── Invitations by the families (EF-34) ───────────────────────────────────
+
+const (
+	// inviteCookie carries a code just made to the account page, which shows
+	// it once: only its hash is kept.
+	inviteCookie    = "invite"
+	maxInviteLength = 20
+)
+
+var inviteCodeRe = regexp.MustCompile(`^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$`)
+
+func (a *App) invitesOf(w http.ResponseWriter, r *http.Request, fam accounts.Family) (*invitesView, error) {
+	ctx := r.Context()
+	loc := a.localizer(r)
+	tz := a.Now().Location()
+	v := &invitesView{Validity: int(a.Options.InviteTTL / (24 * time.Hour)), Max: a.Options.InviteMax}
+
+	if c, err := r.Cookie(inviteCookie); err == nil {
+		http.SetCookie(w, &http.Cookie{Name: inviteCookie, Path: "/account", MaxAge: -1})
+		if inviteCodeRe.MatchString(c.Value) {
+			v.Code = c.Value
+			v.Link = origin(r) + "/signup?invite=" + c.Value
+			// The page shows the code: no copy of it anywhere.
+			w.Header().Set("Cache-Control", "no-store")
+		}
+	}
+
+	pending, err := a.Accounts.PendingInvites(ctx, fam.UserID, a.Now())
+	if err != nil {
+		return nil, err
+	}
+	v.Full = len(pending) >= a.Options.InviteMax
+	for _, p := range pending {
+		dates := map[string]any{"Created": dayMonthYear(loc, p.CreatedAt.In(tz)), "Expires": dayMonthYear(loc, p.ExpiresAt.In(tz))}
+		v.Pending = append(v.Pending, pendingInvite{
+			ID: p.ID, Text: loc.T("account.invite_pending_item", dates), RevokeLabel: loc.T("account.invite_revoke_label", dates),
+		})
+	}
+	invited, err := a.Accounts.InvitedBy(ctx, fam.UserID)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range invited {
+		v.Invited = append(v.Invited, loc.T("account.invite_invited_item",
+			map[string]any{"Login": f.Login, "Since": dayMonthYear(loc, f.CreatedAt.In(tz))}))
+	}
+	return v, nil
+}
+
+// origin is the address of the server as the browser sees it, for the link
+// of an invitation.
+func origin(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
+}
+
+// createInvite makes an invitation code of the family, shown once on the
+// account page.
+func (a *App) createInvite(w http.ResponseWriter, r *http.Request) {
+	if !a.Options.FamilyInvites {
+		a.notFound(w, r)
+		return
+	}
+	fam := familyOf(r.Context())
+	code, err := a.Accounts.CreateFamilyInvite(r.Context(), fam.UserID, a.Options.InviteTTL, a.Options.InviteMax, a.Now())
+	switch {
+	case errors.Is(err, accounts.ErrInviteLimit):
+		redirect(w, r, "/account#invites", "flash.invite_limit")
+	case err != nil:
+		a.fail(w, r, err)
+	default:
+		http.SetCookie(w, &http.Cookie{
+			Name: inviteCookie, Value: code, Path: "/account", MaxAge: 300,
+			HttpOnly: true, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteStrictMode,
+		})
+		redirect(w, r, "/account#invites", "")
+	}
+}
+
+// revokeInvite deletes a pending code of the family.
+func (a *App) revokeInvite(w http.ResponseWriter, r *http.Request) {
+	if !a.Options.FamilyInvites {
+		a.notFound(w, r)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		a.notFound(w, r)
+		return
+	}
+	switch err := a.Accounts.RevokeInvite(r.Context(), familyOf(r.Context()).UserID, id); {
+	case errors.Is(err, accounts.ErrNotFound):
+		a.notFound(w, r)
+	case err != nil:
+		a.fail(w, r, err)
+	default:
+		redirect(w, r, "/account#invites", "flash.invite_revoked")
+	}
 }
 
 func (a *App) account(w http.ResponseWriter, r *http.Request) {

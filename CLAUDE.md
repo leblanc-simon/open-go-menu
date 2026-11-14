@@ -54,7 +54,10 @@ de tirage, EI interface, ENF non fonctionnelles, SEC sécurité, TR recette) et 
   demande, jamais fermée ni supprimée pendant qu'une requête la tient). `web.protect` résout la
   famille **depuis la session uniquement** et pose sa base dans le contexte : les handlers
   l'obtiennent par `storeOf(ctx)`, `internal/store` ignore les autres familles. Session
-  glissante de 400 jours (on reste connecté). `cli.go` : `create-family [-from]`,
+  glissante de 400 jours (on reste connecté). Invitations par les familles (EF-34,
+  `families.family_invites`) : `invites.created_by`/`used_by`, code montré une seule fois
+  via un cookie de 5 min lu par `/account` (réponse `no-store`, jamais gardée par le service
+  worker). `cli.go` : `create-family [-from]`,
   `reset-password`, `invite`, `families`, `purge`.
 
 Socle `leblanc.io/open-go-base` (appconf, logx, ratelimit, i18n via `NewFS`, csrfx, authx) : ne

@@ -1287,6 +1287,68 @@ input[type="checkbox"] {
   }
 }
 
+/* Invitations by the family (EF-34): the new code, shown once, stands out. */
+.invites {
+  .invites__new {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 32rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+
+    .panel__hint {
+      margin-bottom: 0.25rem;
+    }
+
+    label {
+      font-weight: 600;
+    }
+  }
+
+  .invites__code {
+    font: 600 1.5rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 0.08em;
+    overflow-wrap: anywhere;
+  }
+
+  .invites__link {
+    width: 100%;
+  }
+
+  .invites__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    &:not(:has(button:not([hidden]))) {
+      display: none;
+    }
+  }
+
+  .invites__subtitle {
+    margin: 1.75rem 0 0.5rem;
+    font: 600 1.125rem/1.3 var(--serif);
+  }
+
+  .invites__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.25rem 1rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--line);
+    }
+  }
+}
+
 /* ── Shopping ──────────────────────────────────────────────────────────── */
 
 .shopping-new {

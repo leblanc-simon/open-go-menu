@@ -38,7 +38,7 @@
     {{ if eq .Signup "invite" }}
     <div class="auth__field">
       <label for="invite">{{ T "signup.invite" }}</label>
-      <input id="invite" name="invite" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EFGH-JKLM">
+      <input id="invite" name="invite" value="{{ .Invite }}" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EFGH-JKLM">
     </div>
     {{ end }}
     <div class="auth__field">
@@ -105,6 +105,55 @@
     <button class="button" type="submit">{{ T "account.logout_all" }}</button>
   </form>
 </section>
+
+{{ with .Invites }}
+<section class="panel invites" id="invites" aria-labelledby="invites-title">
+  <h2 class="panel__title" id="invites-title">{{ T "account.invite_title" }}</h2>
+  <p class="panel__hint">{{ T "account.invite_hint" }} {{ Tn "account.invite_validity" .Validity }} {{ Tn "account.invite_max" .Max }}</p>
+
+  {{ if .Code }}
+  <div class="invites__new" role="status">
+    <p class="invites__code">{{ .Code }}</p>
+    <p class="panel__hint">{{ T "account.invite_new_hint" }}</p>
+    <label for="invite-link">{{ T "account.invite_link" }}</label>
+    <input class="invites__link" id="invite-link" value="{{ .Link }}" readonly>
+    <div class="invites__actions">
+      <button class="button" type="button" data-copy="{{ .Link }}" data-copied="{{ T "account.invite_copied" }}" hidden>{{ T "account.invite_copy" }}</button>
+      <button class="button" type="button" data-share="{{ .Link }}" data-share-text="{{ T "account.invite_share_text" . }}" hidden>{{ T "account.invite_share" }}</button>
+    </div>
+  </div>
+  {{ end }}
+
+  {{ if .Full }}
+  <p class="panel__hint">{{ Tn "account.invite_full" .Max }}</p>
+  {{ else }}
+  <form method="post" action="/account/invites">
+    {{ csrfField }}
+    <button class="button button--primary" type="submit">{{ T "account.invite_generate" }}</button>
+  </form>
+  {{ end }}
+
+  {{ if .Pending }}
+  <h3 class="invites__subtitle">{{ T "account.invite_pending_title" }}</h3>
+  <ul class="invites__list">
+    {{ range .Pending }}
+    <li>
+      <span>{{ .Text }}</span>
+      <form method="post" action="/account/invites/{{ .ID }}/revoke">
+        {{ csrfField }}
+        <button class="link-button link-button--danger" type="submit" aria-label="{{ .RevokeLabel }}">{{ T "account.invite_revoke" }}</button>
+      </form>
+    </li>
+    {{ end }}
+  </ul>
+  {{ end }}
+
+  {{ if .Invited }}
+  <h3 class="invites__subtitle">{{ T "account.invite_invited_title" }}</h3>
+  <ul class="invites__list">{{ range .Invited }}<li>{{ . }}</li>{{ end }}</ul>
+  {{ end }}
+</section>
+{{ end }}
 
 <section class="panel panel--danger" id="delete" aria-labelledby="delete-title">
   <h2 class="panel__title" id="delete-title">{{ T "account.delete_title" }}</h2>

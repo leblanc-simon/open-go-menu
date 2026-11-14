@@ -53,6 +53,11 @@ func main() {
 		os.Exit(2)
 	}
 
+	if cfg.Families.FamilyInvites && (cfg.Families.FamilyInviteDays < 1 || cfg.Families.FamilyInviteMax < 1) {
+		fmt.Fprintf(os.Stderr, "%s: families.family_invite_days and family_invite_max must be positive\n", appName)
+		os.Exit(2)
+	}
+
 	args := commandArgs(os.Args[1:])
 	var err error
 	if len(args) == 0 || args[0] == "serve" {
@@ -107,7 +112,10 @@ func run(cfg config.Config) error {
 		return err
 	}
 	csrf := csrfx.New(csrfx.WithSecure(cfg.Auth.CookieSecure))
-	opts := web.Options{Signup: cfg.Families.Signup, InactiveMonths: cfg.Families.InactiveMonths, BcryptCost: cfg.Auth.BcryptCost}
+	opts := web.Options{Signup: cfg.Families.Signup, InactiveMonths: cfg.Families.InactiveMonths, BcryptCost: cfg.Auth.BcryptCost,
+		FamilyInvites: cfg.Families.FamilyInvites && cfg.Families.Signup == config.SignupInvite,
+		InviteTTL:     time.Duration(cfg.Families.FamilyInviteDays) * 24 * time.Hour,
+		InviteMax:     cfg.Families.FamilyInviteMax}
 	app, err := web.New(tmplFS, accts, fams, auth, opts, bundle, csrf, logger)
 	if err != nil {
 		return fmt.Errorf("templates: %w", err)
